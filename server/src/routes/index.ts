@@ -1,0 +1,46 @@
+import { Router } from 'express';
+import authRoutes from './authRoutes.js';
+import announcementRoutes from './announcementRoutes.js';
+import extracurricularRoutes from './extracurricularRoutes.js';
+import articleRoutes from './articleRoutes.js';
+import galleryRoutes from './galleryRoutes.js';
+import faqRoutes from './faqRoutes.js';
+import pcPdbRoutes from './pcpdbRoutes.js';
+import validatorRoutes from './validatorRoutes.js';
+import wawasanRoutes from './wawasanRoutes.js';
+import userRoutes from './userRoutes.js';
+import uploadRoutes from './uploadRoutes.js';
+import teamRoutes from './teamRoutes.js';
+import documentRoutes from './documentRoutes.js';
+import subjectRoutes from './subjectRoutes.js';
+import classRoutes from './classRoutes.js';
+import scheduleRoutes from './scheduleRoutes.js';
+import gradeRoutes from './gradeRoutes.js';
+import classAssignmentRoutes from './classAssignmentRoutes.js';
+import eventRoutes from './eventRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/announcements', announcementRoutes);
+router.use('/extracurriculars', extracurricularRoutes);
+router.use('/articles', articleRoutes);
+router.use('/gallery', galleryRoutes);
+router.use('/faq', faqRoutes);
+router.use('/pcpdb', pcPdbRoutes);
+router.use('/validator', validatorRoutes);
+router.use('/wawasan', wawasanRoutes);
+router.use('/users', userRoutes);
+router.use('/uploads', uploadRoutes);
+router.use('/teams', teamRoutes);
+router.use('/documents', documentRoutes);
+router.use('/subjects', subjectRoutes);
+router.use('/classes', classRoutes);
+router.use('/schedules', scheduleRoutes);
+router.use('/grades', gradeRoutes);
+router.use('/class-assignments', classAssignmentRoutes);
+router.use('/events', eventRoutes);
+router.use('/notifications', notificationRoutes);
+
+export default router;

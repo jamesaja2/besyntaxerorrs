@@ -1,0 +1,28 @@
+[
+  {
+    "id": "article-1",
+    "createdAt": "2025-06-01T05:00:00.000Z",
+    "updatedAt": "2025-06-01T05:00:00.000Z",
+    "title": "Sinlui Green Campus Movement",
+    "slug": "sinlui-green-campus-movement",
+    "coverImage": "/images/articles/green-campus.jpg",
+    "summary": "Program ramah lingkungan yang mengajak siswa mengurangi jejak karbon.",
+    "content": "Sinlui Green Campus Movement merupakan inisiatif sekolah untuk mendorong gaya hidup berkelanjutan...",
+    "publishedAt": "2025-06-01",
+    "author": "Tim Redaksi",
+    "tags": ["lingkungan", "siswa", "program"]
+  },
+  {
+    "id": "article-2",
+    "createdAt": "2025-05-15T05:00:00.000Z",
+    "updatedAt": "2025-05-15T05:00:00.000Z",
+    "title": "Prestasi Akademik Semester Genap",
+    "slug": "prestasi-akademik-semester-genap",
+    "coverImage": "/images/articles/prestasi-akademik.jpg",
+    "summary": "Daftar prestasi terbaru siswa Sinlui di tingkat nasional dan internasional.",
+    "content": "Semester genap tahun ini diwarnai berbagai pencapaian akademik, mulai dari olimpiade sains hingga lomba debat bahasa Inggris...",
+    "publishedAt": "2025-05-14",
+    "author": "Guru Pembina",
+    "tags": ["prestasi", "akademik"]
+  }
+]

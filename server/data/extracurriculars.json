@@ -1,0 +1,41 @@
+[
+  {
+    "id": "eks-robotik",
+    "createdAt": "2025-07-01T02:00:00.000Z",
+    "updatedAt": "2025-07-01T02:00:00.000Z",
+    "name": "Robotik",
+    "description": "Klub robotik unggulan dengan fokus pada kompetisi nasional dan internasional.",
+    "category": "Sains & Teknologi",
+    "schedule": "Selasa & Kamis 15:00 - 17:00",
+    "mentor": "Bapak Adi Pratama",
+    "achievements": ["Juara 1 KRI 2025", "Finalis WRO Asia"],
+    "isNew": false,
+    "coverImage": "/images/extracurriculars/robotik.jpg"
+  },
+  {
+    "id": "eks-choir",
+    "createdAt": "2025-07-01T02:00:00.000Z",
+    "updatedAt": "2025-07-01T02:00:00.000Z",
+    "name": "Paduan Suara Laudate",
+    "description": "Paduan suara sekolah dengan repertoar klasik dan liturgis.",
+    "category": "Seni",
+    "schedule": "Senin & Rabu 15:30 - 17:00",
+    "mentor": "Suster Maria",
+    "achievements": ["Gold Medal Bali Choir Festival 2024"],
+    "isNew": false,
+    "coverImage": "/images/extracurriculars/choir.jpg"
+  },
+  {
+    "id": "eks-choir-2025",
+    "createdAt": "2025-09-01T02:00:00.000Z",
+    "updatedAt": "2025-09-01T02:00:00.000Z",
+    "name": "Sinlui STEM Innovators",
+    "description": "Program baru yang memadukan riset sains terapan dengan inovasi teknologi.",
+    "category": "Sains & Teknologi",
+    "schedule": "Jumat 15:00 - 17:30",
+    "mentor": "Ibu Ratna Dewi",
+    "achievements": [],
+    "isNew": true,
+    "coverImage": "/images/extracurriculars/stem.jpg"
+  }
+]

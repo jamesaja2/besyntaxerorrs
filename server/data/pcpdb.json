@@ -1,0 +1,13 @@
+[
+  {
+    "id": "pcpdb-1",
+    "createdAt": "2025-10-05T04:10:00.000Z",
+    "updatedAt": "2025-10-05T04:10:00.000Z",
+    "applicantName": "Bima Satriya",
+    "email": "bima@example.com",
+    "phone": "+6281234567890",
+    "status": "pending",
+    "notes": "Menunggu verifikasi dokumen",
+    "submittedAt": "2025-10-05T04:10:00.000Z"
+  }
+]

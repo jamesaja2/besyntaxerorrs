@@ -1,0 +1,46 @@
+[
+  {
+    "id": "user-admin-1",
+    "createdAt": "2025-01-01T08:00:00.000Z",
+    "updatedAt": "2025-01-01T08:00:00.000Z",
+    "name": "Administrator",
+    "email": "admin@sinlui.id",
+    "role": "admin",
+    "status": "active",
+    "passwordHash": "$2a$10$0C4GVzULfcKkyFrlsag6FOavZssDrEPKHptJHcY5mu6GzWJluMVJ6",
+    "lastLogin": "2025-07-01T07:10:00.000Z"
+  },
+  {
+    "id": "user-teacher-1",
+    "createdAt": "2025-01-01T08:00:00.000Z",
+    "updatedAt": "2025-01-01T08:00:00.000Z",
+    "name": "Guru Matematika",
+    "email": "guru@sinlui.id",
+    "role": "teacher",
+    "status": "active",
+    "passwordHash": "$2a$10$UQKAkfTXJdp7W4jS.kE3jeGocZ3iwXfiMGtTL.4sAkv/qbEqA9b6e",
+    "lastLogin": "2025-07-01T07:10:00.000Z"
+  },
+  {
+    "id": "user-student-1",
+    "createdAt": "2025-01-01T08:00:00.000Z",
+    "updatedAt": "2025-01-01T08:00:00.000Z",
+    "name": "Siswa Kelas XII",
+    "email": "siswa@sinlui.id",
+    "role": "student",
+    "status": "active",
+    "passwordHash": "$2a$10$JMUNYUu2RkhZZSPrXIJNWOUbd174PGgh9bdMwY5/sobecWx.zV8oq",
+    "lastLogin": "2025-07-01T07:10:00.000Z"
+  },
+  {
+    "id": "user-parent-1",
+    "createdAt": "2025-01-01T08:00:00.000Z",
+    "updatedAt": "2025-01-01T08:00:00.000Z",
+    "name": "Orang Tua Siswa",
+    "email": "orangtua@sinlui.id",
+    "role": "parent",
+    "status": "active",
+    "passwordHash": "$2a$10$3IZgp/ALqKgctob4CDMc0.EMpv.66OGnH4O4QmichAfAVTxOs6OH2",
+    "lastLogin": "2025-07-01T07:10:00.000Z"
+  }
+]

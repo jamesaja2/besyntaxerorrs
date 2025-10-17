@@ -1,0 +1,38 @@
+[
+  {
+    "id": "wawasan-sejarah",
+    "createdAt": "2025-01-01T04:00:00.000Z",
+    "updatedAt": "2025-01-01T04:00:00.000Z",
+    "key": "sejarah",
+    "title": "Sejarah SMA Katolik St. Louis 1",
+    "content": "Didirikan pada tahun 1862 oleh Kongregasi Imam-imam Serikat Misi (CM), SMA Katolik St. Louis 1 Surabaya merupakan salah satu sekolah Katolik tertua di Indonesia. Sejak awal berdiri, sekolah ini menekankan pendidikan karakter Vinsensian yang memadukan keunggulan akademik dan spiritualitas pelayanan.",
+    "media": "/images/history/school-heritage.jpg"
+  },
+  {
+    "id": "wawasan-visimisi",
+    "createdAt": "2025-01-01T04:00:00.000Z",
+    "updatedAt": "2025-01-01T04:00:00.000Z",
+    "key": "visi-misi",
+    "title": "Visi & Misi",
+    "content": "Visi: Menjadi komunitas pendidikan Katolik unggul yang membentuk insan beriman, cerdas, dan peduli.\nMisi: (1) Mengembangkan iman Katolik yang dewasa dan tangguh. (2) Menyelenggarakan pembelajaran berkualitas dan relevan. (3) Menumbuhkan kepedulian sosial dan semangat pelayanan.",
+    "media": "/images/history/vision-mission.jpg"
+  },
+  {
+    "id": "wawasan-struktur",
+    "createdAt": "2025-01-01T04:00:00.000Z",
+    "updatedAt": "2025-01-01T04:00:00.000Z",
+    "key": "struktur",
+    "title": "Struktur Organisasi",
+    "content": "Struktur organisasi terdiri dari Kepala Sekolah, Wakil Kepala Sekolah bidang Kurikulum, Kesiswaan, dan Sarpras, serta Koordinator bidang pastoral dan ekstrakurikuler.",
+    "media": "/images/history/organization-structure.png"
+  },
+  {
+    "id": "wawasan-ourteams",
+    "createdAt": "2025-01-01T04:00:00.000Z",
+    "updatedAt": "2025-01-01T04:00:00.000Z",
+    "key": "our-teams",
+    "title": "Tim Pengajar & Staff",
+    "content": "Lebih dari 80 pendidik dan tenaga kependidikan dengan sertifikasi profesional siap mendampingi peserta didik.",
+    "media": "/images/history/teachers-team.jpg"
+  }
+]

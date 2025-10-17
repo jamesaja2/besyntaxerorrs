@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 218 100% 96%; /* Cool mist */
+    --foreground: 223 26% 18%; /* Deep blue charcoal */
+    --card: 218 100% 97%;
+    --card-foreground: 223 26% 18%;
+    --popover: 218 100% 97%;
+    --popover-foreground: 223 26% 18%;
+    --primary: 210 100% 33%; /* Academy blue */
+    --primary-foreground: 0 0% 100%; /* Pure white */
+    --secondary: 217 82% 93%; /* Soft sky */
+    --secondary-foreground: 223 26% 22%;
+    --muted: 217 49% 90%;
+    --muted-foreground: 219 30% 52%;
+    --accent: 210 100% 33%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 16 78% 54%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 86% 80%;
+    --input: 217 72% 88%;
+    --ring: 210 100% 40%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-school-primary text-school-text font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-school-surface;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-school-accent rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-school-accent/80;
+  }
+}
+
+@layer components {
+  .container-padding {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  .section-spacing {
+    @apply py-16 lg:py-24;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-school-accent to-school-accent-dark bg-clip-text text-transparent;
+  }
+  
+  .card-hover {
+    @apply transition-all duration-300 ease-out hover:shadow-lg hover:shadow-school-accent/20 hover:-translate-y-1;
+  }
+  
+  .navbar-floating {
+    @apply mx-4 rounded-2xl mt-4;
+    box-shadow: 0 10px 40px rgba(37, 99, 235, 0.18);
+  }
+}
+
+/* Pannellum custom styles */
+.pnlm-container {
+  @apply rounded-2xl overflow-hidden;
+}
+
+.pnlm-ui .pnlm-controls {
+  @apply bg-black/50 backdrop-blur-sm;
+}
+
+.pnlm-ui .pnlm-control {
+  @apply text-school-accent hover:text-school-accent-dark;
+}

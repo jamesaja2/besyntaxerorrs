@@ -1,0 +1,18 @@
+[
+  {
+    "id": "faq-1",
+    "createdAt": "2025-01-01T04:00:00.000Z",
+    "updatedAt": "2025-01-01T04:00:00.000Z",
+    "question": "Bagaimana cara mendaftar PCPDB?",
+    "answer": "Silakan kunjungi halaman PCPDB di website resmi, unggah berkas dan lengkapi formulir. Admin akan menghubungi melalui email terdaftar.",
+    "category": "PCPDB"
+  },
+  {
+    "id": "faq-2",
+    "createdAt": "2025-01-01T04:00:00.000Z",
+    "updatedAt": "2025-01-01T04:00:00.000Z",
+    "question": "Apakah sekolah menyediakan beasiswa?",
+    "answer": "Ada program beasiswa prestasi dan bantuan pendidikan. Informasi lengkap tersedia di TU atau hubungi admin.",
+    "category": "Umum"
+  }
+]

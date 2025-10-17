@@ -1,0 +1,391 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String                         @id @default(cuid())
+  name                     String
+  email                    String                         @unique
+  passwordHash             String
+  role                     String                         @default("student")
+  status                   String                         @default("active")
+  phone                    String?
+  avatarUrl                String?
+  classId                  String?
+  lastLogin                DateTime?
+  createdAt                DateTime                       @default(now())
+  updatedAt                DateTime                       @updatedAt
+
+  class                    SchoolClass?                   @relation("ClassStudents", fields: [classId], references: [id])
+  homeroomClasses          SchoolClass[]                  @relation("ClassHomeroom")
+  teachingSchedules        ClassSchedule[]                @relation("TeacherSchedule")
+  teacherGrades            Grade[]                        @relation("TeacherGradeEntries")
+  studentGrades            Grade[]                        @relation("StudentGradeEntries")
+  parentRelations          ParentStudentLink[]            @relation("ParentLinkParent")
+  childRelations           ParentStudentLink[]            @relation("ParentLinkStudent")
+  classAssignments         TeacherClassAssignment[]
+  announcements            Announcement[]                 @relation("AnnouncementAuthor")
+  articles                 Article[]                      @relation("ArticleAuthor")
+  issuedDocuments          DocumentRecord[]               @relation("DocumentIssuer")
+  verificationLogs         DocumentVerificationLog[]      @relation("VerifierLogs")
+  validatorHistories       ValidatorHistory[]             @relation("ValidatorHistoryCreator")
+  events                   SchoolEvent[]                  @relation("EventCreator")
+  notifications            Notification[]                 @relation("NotificationUser")
+  mentoredExtracurriculars Extracurricular[]              @relation("ExtracurricularMentor")
+  reviewedPcpdbEntries     PCPDBEntry[]                   @relation("PCPDBReviewer")
+}
+
+model SchoolClass {
+  id                 String                   @id @default(cuid())
+  name               String
+  gradeLevel         Int
+  academicYear       String
+  description        String?
+  homeroomTeacherId  String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  homeroomTeacher    User?                    @relation("ClassHomeroom", fields: [homeroomTeacherId], references: [id])
+  students           User[]                   @relation("ClassStudents")
+  schedules          ClassSchedule[]
+  grades             Grade[]
+  teacherAssignments TeacherClassAssignment[]
+  events             SchoolEvent[]
+}
+
+model Subject {
+  id          String                 @id @default(cuid())
+  name        String
+  code        String                 @unique
+  description String?
+  credits     Int?                   @default(0)
+  color       String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  schedules   ClassSchedule[]
+  grades      Grade[]
+  assignments TeacherClassAssignment[]
+}
+
+model ClassSchedule {
+  id          String       @id @default(cuid())
+  classId     String
+  subjectId   String
+  teacherId   String
+  dayOfWeek   String
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  class       SchoolClass  @relation(fields: [classId], references: [id])
+  subject     Subject      @relation(fields: [subjectId], references: [id])
+  teacher     User         @relation("TeacherSchedule", fields: [teacherId], references: [id])
+}
+
+model Grade {
+  id             String      @id @default(cuid())
+  studentId      String
+  subjectId      String
+  classId        String?
+  teacherId      String?
+  term           String
+  assessmentType String?
+  score          Float
+  remarks        String?
+  issuedAt       DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  student        User        @relation("StudentGradeEntries", fields: [studentId], references: [id])
+  subject        Subject     @relation(fields: [subjectId], references: [id])
+  class          SchoolClass? @relation(fields: [classId], references: [id])
+  teacher        User?       @relation("TeacherGradeEntries", fields: [teacherId], references: [id])
+}
+
+model TeacherClassAssignment {
+  id        String       @id @default(cuid())
+  teacherId String
+  classId   String
+  subjectId String?
+  role      String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  teacher   User         @relation(fields: [teacherId], references: [id])
+  class     SchoolClass  @relation(fields: [classId], references: [id])
+  subject   Subject?     @relation(fields: [subjectId], references: [id])
+
+  @@unique([teacherId, classId, subjectId])
+}
+
+model ParentStudentLink {
+  id            String   @id @default(cuid())
+  parentId      String
+  studentId     String
+  relationship  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  parent        User     @relation("ParentLinkParent", fields: [parentId], references: [id])
+  student       User     @relation("ParentLinkStudent", fields: [studentId], references: [id])
+
+  @@unique([parentId, studentId])
+}
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  summary   String
+  content   String
+  date      DateTime
+  category  String
+  pinned    Boolean   @default(false)
+  imageUrl  String?
+  authorId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  author    User?     @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+}
+
+model Article {
+  id          String       @id @default(cuid())
+  title       String
+  slug        String       @unique
+  coverImage  String?
+  summary     String
+  content     String
+  publishedAt DateTime
+  authorId    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  author      User?        @relation("ArticleAuthor", fields: [authorId], references: [id])
+  tags        ArticleTag[]
+}
+
+model ArticleTag {
+  id        String   @id @default(cuid())
+  articleId String
+  value     String
+  createdAt DateTime @default(now())
+
+  article   Article  @relation(fields: [articleId], references: [id])
+
+  @@unique([articleId, value])
+}
+
+model Extracurricular {
+  id             String                       @id @default(cuid())
+  name           String
+  description    String
+  category       String
+  schedule       String
+  mentorName     String
+  mentorId       String?
+  isNew          Boolean                      @default(false)
+  coverImage     String?
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  mentor         User?                        @relation("ExtracurricularMentor", fields: [mentorId], references: [id])
+  achievements   ExtracurricularAchievement[]
+}
+
+model ExtracurricularAchievement {
+  id                String          @id @default(cuid())
+  extracurricularId String
+  description       String
+  createdAt         DateTime        @default(now())
+
+  extracurricular   Extracurricular @relation(fields: [extracurricularId], references: [id])
+}
+
+model GalleryItem {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  imageUrl    String
+  publishedAt DateTime
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tags        GalleryTag[]
+}
+
+model GalleryTag {
+  id            String      @id @default(cuid())
+  galleryItemId String
+  value         String
+  createdAt     DateTime    @default(now())
+
+  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
+
+  @@unique([galleryItemId, value])
+}
+
+model FAQItem {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  category  String
+  order     Int?     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WawasanContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  title     String
+  content   String
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamMember {
+  id              String                    @id @default(cuid())
+  name            String
+  role            String
+  category        String
+  department      String?
+  email           String?
+  education       String?
+  experience      String?
+  photoUrl        String?
+  order           Int?                       @default(0)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  specializations TeamMemberSpecialization[]
+}
+
+model TeamMemberSpecialization {
+  id           String     @id @default(cuid())
+  teamMemberId String
+  value        String
+  createdAt    DateTime   @default(now())
+
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id])
+
+  @@unique([teamMemberId, value])
+}
+
+model PCPDBEntry {
+  id            String     @id @default(cuid())
+  applicantName String
+  email         String
+  phone         String
+  status        String     @default("pending")
+  notes         String?
+  submittedAt   DateTime
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  reviewedBy    User?      @relation("PCPDBReviewer", fields: [reviewedById], references: [id])
+}
+
+model ValidatorHistory {
+  id              String    @id @default(cuid())
+  url             String
+  normalizedUrl   String
+  verdict         String
+  maliciousCount  Int
+  suspiciousCount Int
+  undetectedCount Int
+  categoriesJson  String?
+  provider        String    @default("virustotal")
+  scannedAt       DateTime  @default(now())
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdBy       User?     @relation("ValidatorHistoryCreator", fields: [createdById], references: [id])
+}
+
+model SchoolEvent {
+  id          String       @id @default(cuid())
+  title       String
+  description String
+  startAt     DateTime
+  endAt       DateTime?
+  location    String?
+  visibility  String       @default("school")
+  classId     String?
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  class       SchoolClass? @relation(fields: [classId], references: [id])
+  createdBy   User?        @relation("EventCreator", fields: [createdById], references: [id])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  title      String
+  body       String
+  type       String
+  userId     String?
+  targetRole String?
+  readAt     DateTime?
+  metadata   String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user       User?     @relation("NotificationUser", fields: [userId], references: [id])
+}
+
+model DocumentRecord {
+  id               String                     @id @default(cuid())
+  title            String?
+  description      String?
+  originalFileName String
+  fileSize         Int
+  mimeType         String
+  storedFilePath   String
+  signedFilePath   String
+  fileHash         String                     @unique
+  verificationCode String                     @unique
+  hashAlgorithm    String                     @default("sha256")
+  barcodeValue     String?
+  issuedFor        String?
+  issuerId         String?
+  issuedAt         DateTime                   @default(now())
+  status           String                     @default("active")
+  downloads        Int                        @default(0)
+  metadata         String?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  issuer           User?                      @relation("DocumentIssuer", fields: [issuerId], references: [id])
+  verificationLogs DocumentVerificationLog[]
+}
+
+model DocumentVerificationLog {
+  id             String      @id @default(cuid())
+  documentId     String
+  verifierId     String?
+  verifierName   String?
+  verifierRole   String?
+  verifierEmail  String?
+  submittedHash  String
+  matched        Boolean
+  verifiedVia    String?
+  metadata       String?
+  createdAt      DateTime    @default(now())
+
+  document       DocumentRecord @relation(fields: [documentId], references: [id])
+  verifier       User?          @relation("VerifierLogs", fields: [verifierId], references: [id])
+}
