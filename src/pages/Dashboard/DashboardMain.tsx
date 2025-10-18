@@ -1,7 +1,5 @@
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import AdminDashboard from './AdminDashboard';
-import TeacherDashboard from './TeacherDashboard';
-import StudentDashboard from './StudentDashboard';
 
 export function DashboardMain() {
   const { user } = useAuth();
@@ -19,19 +17,16 @@ export function DashboardMain() {
 
   switch (user.role) {
     case 'admin':
-      return <AdminDashboard />;
+      return <Navigate to="/dashboard/admin/overview" replace />;
     case 'teacher':
-      return <TeacherDashboard />;
+      return <Navigate to="/dashboard/teacher/overview" replace />;
     case 'student':
-      return <StudentDashboard />;
+      return <Navigate to="/dashboard/student/overview" replace />;
+    case 'parent':
+      return <Navigate to="/dashboard/parent/overview" replace />;
+    case 'guest':
+      return <Navigate to="/dashboard/guest/overview" replace />;
     default:
-      return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-school-text mb-4">Role Not Recognized</h2>
-            <p className="text-school-text-muted">Please contact administrator for assistance.</p>
-          </div>
-        </div>
-      );
+      return <Navigate to="/dashboard" replace />;
   }
 }

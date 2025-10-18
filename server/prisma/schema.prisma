@@ -253,6 +253,46 @@ model WawasanContent {
   updatedAt DateTime @updatedAt
 }
 
+model WawasanTimelineEntry {
+  id          String   @id @default(cuid())
+  sectionKey  String
+  period      String
+  description String
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sectionKey])
+}
+
+model WawasanHeritageValue {
+  id         String   @id @default(cuid())
+  sectionKey String
+  value      String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([sectionKey])
+}
+
+model WawasanStructureEntry {
+  id         String                  @id @default(cuid())
+  sectionKey String
+  position   String
+  name       String
+  department String?
+  parentId   String?
+  order      Int                     @default(0)
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  parent     WawasanStructureEntry?  @relation("StructureHierarchy", fields: [parentId], references: [id])
+  children   WawasanStructureEntry[] @relation("StructureHierarchy")
+
+  @@index([sectionKey])
+}
+
 model TeamMember {
   id              String                    @id @default(cuid())
   name            String

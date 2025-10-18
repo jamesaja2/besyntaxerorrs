@@ -5,3 +5,8 @@ export async function fetchArticles() {
   const response = await api.get<Article[]>('/articles');
   return response.data;
 }
+
+export async function fetchArticleBySlug(slug: string) {
+  const response = await api.get<Article>(`/articles/slug/${encodeURIComponent(slug)}`);
+  return response.data;
+}

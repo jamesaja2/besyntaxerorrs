@@ -42,6 +42,9 @@ async function clearDatabase() {
   await prisma.announcement.deleteMany();
   await prisma.teamMemberSpecialization.deleteMany();
   await prisma.teamMember.deleteMany();
+  await prisma.wawasanStructureEntry.deleteMany();
+  await prisma.wawasanHeritageValue.deleteMany();
+  await prisma.wawasanTimelineEntry.deleteMany();
   await prisma.wawasanContent.deleteMany();
   await prisma.fAQItem.deleteMany();
   await prisma.galleryItem.deleteMany();
@@ -425,17 +428,127 @@ async function main() {
   }
 
   for (const wawasan of wawasanSeed) {
-    await prisma.wawasanContent.create({
+    const rawContent = typeof wawasan.content === 'string' ? wawasan.content : JSON.stringify(wawasan.content ?? {});
+    let parsedContent: Record<string, unknown> = {};
+
+    try {
+      parsedContent = JSON.parse(rawContent) as Record<string, unknown>;
+    } catch {
+      parsedContent = {};
+    }
+
+    const normalizedContent: Record<string, unknown> = { ...parsedContent };
+    const timelineItems = Array.isArray((parsedContent as any).timeline) ? ((parsedContent as any).timeline as Array<Record<string, unknown>>) : [];
+    delete (normalizedContent as any).timeline;
+
+    const heritageRaw = (parsedContent as any).heritage;
+    let heritageValues: Array<Record<string, unknown> | string> = [];
+    if (heritageRaw && typeof heritageRaw === 'object') {
+      const { values, ...heritageRest } = heritageRaw as Record<string, unknown> & { values?: unknown };
+      heritageValues = Array.isArray(values) ? (values as Array<Record<string, unknown> | string>) : [];
+      normalizedContent.heritage = heritageRest;
+    } else if ('heritage' in normalizedContent) {
+      delete (normalizedContent as any).heritage;
+    }
+
+    const structureItems = Array.isArray((parsedContent as any).entries) ? ((parsedContent as any).entries as Array<Record<string, unknown>>) : [];
+    delete (normalizedContent as any).entries;
+
+    const createdSection = await prisma.wawasanContent.create({
       data: {
         id: wawasan.id,
         key: wawasan.key,
         title: wawasan.title,
-        content: wawasan.content,
-        mediaUrl: wawasan.media ?? null,
+        content: JSON.stringify(normalizedContent),
+        mediaUrl: wawasan.mediaUrl ?? wawasan.media ?? null,
         createdAt: asDate(wawasan.createdAt) ?? now,
         updatedAt: asDate(wawasan.updatedAt) ?? now
       }
     });
+
+    if (createdSection.key === 'sejarah') {
+      for (const [index, itemRaw] of timelineItems.entries()) {
+        if (!itemRaw || typeof itemRaw !== 'object') {
+          continue;
+        }
+
+        const item = itemRaw as Record<string, unknown>;
+        const period = typeof item['period'] === 'string' ? (item['period'] as string) : null;
+        const description = typeof item['description'] === 'string' ? (item['description'] as string) : null;
+        if (!period || !description) {
+          continue;
+        }
+
+        const data: Record<string, unknown> = {
+          sectionKey: createdSection.key,
+          period,
+          description,
+          order: typeof item['order'] === 'number' ? (item['order'] as number) : index
+        };
+
+        if (typeof item['id'] === 'string' && (item['id'] as string).trim() !== '') {
+          data.id = item['id'];
+        }
+
+        await prisma.wawasanTimelineEntry.create({ data: data as any });
+      }
+
+      for (const [index, valueRaw] of heritageValues.entries()) {
+        const valueObject = typeof valueRaw === 'object' && valueRaw !== null ? (valueRaw as Record<string, unknown>) : null;
+        const value = valueObject
+          ? typeof valueObject['value'] === 'string'
+            ? (valueObject['value'] as string)
+            : null
+          : typeof valueRaw === 'string'
+            ? valueRaw
+            : null;
+        if (!value) {
+          continue;
+        }
+
+        const data: Record<string, unknown> = {
+          sectionKey: createdSection.key,
+          value,
+          order: valueObject && typeof valueObject['order'] === 'number' ? (valueObject['order'] as number) : index
+        };
+
+        if (valueObject && typeof valueObject['id'] === 'string' && (valueObject['id'] as string).trim() !== '') {
+          data.id = valueObject['id'];
+        }
+
+        await prisma.wawasanHeritageValue.create({ data: data as any });
+      }
+    }
+
+    if (createdSection.key === 'struktur') {
+      for (const [index, entryRaw] of structureItems.entries()) {
+        if (!entryRaw || typeof entryRaw !== 'object') {
+          continue;
+        }
+
+        const entry = entryRaw as Record<string, unknown>;
+        const position = typeof entry['position'] === 'string' ? (entry['position'] as string) : null;
+        const name = typeof entry['name'] === 'string' ? (entry['name'] as string) : null;
+        if (!position || !name) {
+          continue;
+        }
+
+        const data: Record<string, unknown> = {
+          sectionKey: createdSection.key,
+          position,
+          name,
+          department: typeof entry['department'] === 'string' ? (entry['department'] as string) : null,
+          parentId: typeof entry['parentId'] === 'string' ? (entry['parentId'] as string) : null,
+          order: typeof entry['order'] === 'number' ? (entry['order'] as number) : index
+        };
+
+        if (typeof entry['id'] === 'string' && (entry['id'] as string).trim() !== '') {
+          data.id = entry['id'];
+        }
+
+        await prisma.wawasanStructureEntry.create({ data: data as any });
+      }
+    }
   }
 
   for (const member of teamSeed) {

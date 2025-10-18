@@ -19,6 +19,8 @@ import gradeRoutes from './gradeRoutes.js';
 import classAssignmentRoutes from './classAssignmentRoutes.js';
 import eventRoutes from './eventRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
+import settingsRoutes from './settingsRoutes.js';
+import seoRoutes from './seoRoutes.js';
 
 const router = Router();
 
@@ -42,5 +44,7 @@ router.use('/grades', gradeRoutes);
 router.use('/class-assignments', classAssignmentRoutes);
 router.use('/events', eventRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/seo', seoRoutes);
 
 export default router;

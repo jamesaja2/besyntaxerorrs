@@ -26,3 +26,5 @@ jagoan
 .env
 server/prisma/dev.db
 server/uploads/
+server/data/settings.json
+*.zip

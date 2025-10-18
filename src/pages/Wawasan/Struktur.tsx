@@ -1,19 +1,30 @@
-import React from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
 import { SEO } from '@/components/SEO';
 import { Section, SectionHeader, SectionTitle, SectionDescription } from '@/components/sections/Section';
 import { Card, CardContent } from '@/components/ui/card';
-import { organizationStructure, departmentColors, OrganizationStructure } from '@/data/struktur';
+import { useWawasanSection } from '@/hooks/useWawasanSection';
+import {
+  strukturFallback,
+  strukturMeta,
+  departmentColors,
+  type StrukturContent,
+  type StructureEntry
+} from '@/data/struktur';
 
-interface OrgChartNodeProps {
-  node: OrganizationStructure;
-  level: number;
-  isLast?: boolean;
+interface OrganizationNode extends StructureEntry {
+  children: OrganizationNode[];
+  reportTo?: string;
 }
 
-function OrgChartNode({ node, level, isLast = false }: OrgChartNodeProps) {
-  const [isExpanded, setIsExpanded] = React.useState(level < 2);
+interface OrgChartNodeProps {
+  node: OrganizationNode;
+  level: number;
+}
+
+function OrgChartNode({ node, level }: OrgChartNodeProps) {
+  const [isExpanded, setIsExpanded] = useState(level < 2);
 
   const hasChildren = node.children && node.children.length > 0;
 
@@ -24,7 +35,7 @@ function OrgChartNode({ node, level, isLast = false }: OrgChartNodeProps) {
       x: 0,
       transition: {
         duration: 0.4,
-        ease: "easeOut",
+        ease: 'easeOut' as const,
       },
     },
   };
@@ -108,13 +119,8 @@ function OrgChartNode({ node, level, isLast = false }: OrgChartNodeProps) {
           )}
           
           <div className="space-y-2">
-            {node.children!.map((child, index) => (
-              <OrgChartNode
-                key={`${child.position}-${index}`}
-                node={child}
-                level={level + 1}
-                isLast={index === node.children!.length - 1}
-              />
+            {node.children!.map((child) => (
+              <OrgChartNode key={child.id} node={child} level={level + 1} />
             ))}
           </div>
         </motion.div>
@@ -123,11 +129,60 @@ function OrgChartNode({ node, level, isLast = false }: OrgChartNodeProps) {
   );
 }
 
+function buildOrgTree(entries: StructureEntry[]): OrganizationNode[] {
+  const nodes = new Map<string, OrganizationNode>();
+
+  entries.forEach((entry) => {
+    nodes.set(entry.id, {
+      ...entry,
+      parentId: entry.parentId ?? null,
+      children: []
+    });
+  });
+
+  const roots: OrganizationNode[] = [];
+
+  nodes.forEach((node) => {
+    if (node.parentId) {
+      const parent = nodes.get(node.parentId);
+      if (parent) {
+        node.reportTo = parent.position;
+        parent.children.push(node);
+        return;
+      }
+    }
+    roots.push(node);
+  });
+
+  const sortNodes = (items: OrganizationNode[]) => {
+    items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    items.forEach((item) => sortNodes(item.children));
+  };
+
+  sortNodes(roots);
+
+  return roots;
+}
+
 export function Struktur() {
+  const { content, metadata, isLoading, isError, usedFallback } = useWawasanSection<StrukturContent>({
+    key: 'struktur',
+    fallback: {
+      content: strukturFallback,
+      title: strukturMeta.title,
+      mediaUrl: strukturMeta.mediaUrl
+    }
+  });
+
+  const organizationRoots = useMemo(() => buildOrgTree(content.entries), [content.entries]);
+  const [firstWord, ...restWords] = metadata.title.split(' ');
+  const highlightText = restWords.join(' ');
+  const showFallbackNotice = !isLoading && (isError || usedFallback);
+
   return (
     <>
       <SEO 
-        title="Struktur Organisasi - SMA Katolik St. Louis 1 Surabaya"
+        title={`${metadata.title} - SMA Katolik St. Louis 1 Surabaya`}
         description="Struktur organisasi dan kepemimpinan SMA Katolik St. Louis 1 Surabaya. Kepala sekolah, wakil kepala sekolah, koordinator, dan tim manajemen."
         keywords="struktur organisasi, kepala sekolah, wakil kepala sekolah, manajemen sekolah, koordinator"
       />
@@ -136,14 +191,29 @@ export function Struktur() {
         <Section>
           <SectionHeader>
             <SectionTitle>
-              Struktur 
-              <span className="gradient-text">Organisasi</span>
+              {firstWord}
+              {highlightText ? (
+                <>
+                  {' '}
+                  <span className="gradient-text">{highlightText}</span>
+                </>
+              ) : null}
             </SectionTitle>
             <SectionDescription>
-              Susunan kepemimpinan dan organisasi yang mengelola pendidikan 
-              di SMA Katolik St. Louis 1 Surabaya secara professional dan terstruktur.
+              {content.introDescription}
             </SectionDescription>
           </SectionHeader>
+
+          {showFallbackNotice && (
+            <motion.div
+              className="mb-8 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-400"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <AlertCircle className="h-4 w-4" />
+              Konten ditampilkan dari data cadangan.
+            </motion.div>
+          )}
 
           {/* Organizational Chart */}
           <motion.div
@@ -152,7 +222,17 @@ export function Struktur() {
             transition={{ delay: 0.2 }}
             className="bg-school-primary/30 rounded-2xl p-6 border border-school-accent/20"
           >
-            <OrgChartNode node={organizationStructure} level={0} />
+            {organizationRoots.length > 0 ? (
+              <div className="space-y-6">
+                {organizationRoots.map((root) => (
+                  <OrgChartNode key={root.id} node={root} level={0} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-school-text-muted text-sm">
+                Struktur organisasi belum tersedia.
+              </div>
+            )}
           </motion.div>
 
           {/* Department Legend */}
@@ -193,13 +273,10 @@ export function Struktur() {
           >
             <div className="bg-school-secondary/50 rounded-2xl p-8 border border-school-accent/20">
               <h3 className="text-xl font-bold text-school-text mb-4">
-                Manajemen Sekolah yang Profesional
+                {content.additionalInfo.title}
               </h3>
               <p className="text-school-text-muted leading-relaxed max-w-3xl mx-auto">
-                Struktur organisasi kami dirancang untuk memberikan pelayanan pendidikan 
-                terbaik dengan sistem manajemen yang jelas, terukur, dan akuntabel. 
-                Setiap bagian memiliki peran penting dalam menciptakan lingkungan 
-                pembelajaran yang kondusif dan berkualitas tinggi.
+                {content.additionalInfo.description}
               </p>
             </div>
           </motion.div>

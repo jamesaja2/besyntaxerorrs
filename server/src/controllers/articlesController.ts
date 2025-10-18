@@ -43,6 +43,26 @@ export async function getArticles(_req: Request, res: Response) {
   return res.json(articles.map((article) => serializeArticle(article)));
 }
 
+export async function getArticleBySlug(req: Request, res: Response) {
+  const slug = req.params.slug;
+  if (!slug) {
+    return res.status(400).json({ message: 'Slug is required' });
+  }
+
+  const article = await prisma.article.findFirst({
+    where: {
+      OR: [{ slug }, { id: slug }]
+    },
+    include: { tags: true }
+  });
+
+  if (!article) {
+    return res.status(404).json({ message: 'Artikel tidak ditemukan' });
+  }
+
+  return res.json(serializeArticle(article));
+}
+
 export async function createArticle(req: Request, res: Response) {
   const parsed = articleSchema.safeParse(req.body);
   if (!parsed.success) {

@@ -10,6 +10,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().default('file:./dev.db'),
   VIRUSTOTAL_API_KEY: z.string().optional(),
   GOOGLE_SAFEBROWSING_KEY: z.string().optional(),
+  GOOGLE_GEMINI_API_KEY: z.string().optional(),
+  GOOGLE_GEMINI_API_KEY: z.string().optional(),
   ALLOW_ORIGINS: z.string().optional(),
   SENTRY_DSN: z.union([z.string().url(), z.literal('')]).optional()
 });

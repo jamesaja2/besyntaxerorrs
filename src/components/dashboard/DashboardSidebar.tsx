@@ -10,7 +10,13 @@ import {
   LogOut,
   Home,
   ChevronDown,
-  Monitor
+  Monitor,
+  Settings,
+  Users,
+  LifeBuoy,
+  Sparkles,
+  Bot,
+  BookOpen
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -21,61 +27,47 @@ interface SidebarProps {
 interface NavItem {
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  roles: UserRole[];
-  href?: string;
-  sectionId?: string;
+  to: string;
 }
 
-const navigation: NavItem[] = [
-  {
-    label: 'Dashboard',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-    roles: ['admin', 'teacher', 'student']
-  },
-  {
-    label: 'Document Management',
-    sectionId: 'documents-section',
-    icon: FileText,
-    roles: ['admin', 'teacher']
-  },
-  {
-    label: 'Document Library',
-    sectionId: 'documents-section',
-    icon: FileText,
-    roles: ['student']
-  },
-  {
-    label: 'Domain Validator',
-    sectionId: 'validator-section',
-    icon: ShieldCheck,
-    roles: ['admin']
-  },
-  {
-    label: 'Schedule Management',
-    sectionId: 'schedules-section',
-    icon: CalendarRange,
-    roles: ['admin']
-  },
-  {
-    label: 'Teaching Schedule',
-    sectionId: 'schedule-section',
-    icon: CalendarRange,
-    roles: ['teacher']
-  },
-  {
-    label: 'Learning Schedule',
-    sectionId: 'schedule-section',
-    icon: CalendarRange,
-    roles: ['student']
-  }
-];
+const navigationByRole: Record<UserRole, NavItem[]> = {
+  admin: [
+    { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/admin/overview' },
+    { label: 'Landing Content', icon: Home, to: '/dashboard/admin/landing' },
+    { label: 'Wawasan Content', icon: BookOpen, to: '/dashboard/admin/wawasan' },
+    { label: 'Documents', icon: FileText, to: '/dashboard/admin/documents' },
+    { label: 'Domain Validator', icon: ShieldCheck, to: '/dashboard/admin/validator' },
+    { label: 'AI Domain Analyst', icon: Sparkles, to: '/dashboard/admin/validator-ai' },
+  { label: 'AI SEO Assistant', icon: Bot, to: '/dashboard/admin/seo' },
+    { label: 'Schedules', icon: CalendarRange, to: '/dashboard/admin/schedules' },
+    { label: 'Settings', icon: Settings, to: '/dashboard/admin/settings' }
+  ],
+  teacher: [
+    { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/teacher/overview' },
+    { label: 'My Documents', icon: FileText, to: '/dashboard/teacher/documents' },
+    { label: 'Teaching Schedule', icon: CalendarRange, to: '/dashboard/teacher/schedule' }
+  ],
+  student: [
+    { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/student/overview' },
+    { label: 'Documents', icon: FileText, to: '/dashboard/student/documents' },
+    { label: 'Schedule', icon: CalendarRange, to: '/dashboard/student/schedule' }
+  ],
+  parent: [
+    { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/parent/overview' },
+    { label: 'Children Progress', icon: Users, to: '/dashboard/parent/children' },
+    { label: 'Support', icon: LifeBuoy, to: '/dashboard/parent/support' }
+  ],
+  guest: [
+    { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/guest/overview' },
+    { label: 'Resources', icon: FileText, to: '/dashboard/guest/resources' }
+  ]
+};
 
 export function DashboardSidebar({ isCollapsed, onToggle }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const filteredNavigation = navigation.filter(item => user && item.roles.includes(user.role));
+  const filteredNavigation = user ? navigationByRole[user.role] ?? [] : [];
 
   const handleLogout = () => {
     logout();
@@ -91,16 +83,6 @@ export function DashboardSidebar({ isCollapsed, onToggle }: SidebarProps) {
       case 'guest': return 'bg-school-guest text-gray-700';
       default: return 'bg-gray-100 text-gray-700';
     }
-  };
-
-  const handleNavigateToSection = (sectionId: string) => {
-    navigate('/dashboard');
-    window.setTimeout(() => {
-      const target = document.getElementById(sectionId);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 60);
   };
 
   return (
@@ -165,41 +147,23 @@ export function DashboardSidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {filteredNavigation.map((item) => {
-          if (item.sectionId) {
-            return (
-              <button
-                key={`${item.sectionId}`}
-                onClick={() => handleNavigateToSection(item.sectionId!)}
-                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                  'text-school-text-muted hover:bg-school-sidebar-hover hover:text-school-text'
-                }`}
-                style={{ paddingLeft: `${isCollapsed ? 12 : 12}px` }}
-              >
-                <item.icon size={20} />
-                {!isCollapsed && <span>{item.label}</span>}
-              </button>
-            );
-          }
-
-          return (
-            <NavLink
-              key={item.href}
-              to={item.href ?? '/dashboard'}
-              className={({ isActive }) =>
-                `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-school-accent text-white'
-                    : 'text-school-text-muted hover:bg-school-sidebar-hover hover:text-school-text'
-                }`
-              }
-              style={{ paddingLeft: `${isCollapsed ? 12 : 12}px` }}
-            >
-              <item.icon size={20} />
-              {!isCollapsed && <span>{item.label}</span>}
-            </NavLink>
-          );
-        })}
+        {filteredNavigation.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-school-accent text-white'
+                  : 'text-school-text-muted hover:bg-school-sidebar-hover hover:text-school-text'
+              }`
+            }
+            style={{ paddingLeft: `${isCollapsed ? 12 : 12}px` }}
+          >
+            <item.icon size={20} />
+            {!isCollapsed && <span>{item.label}</span>}
+          </NavLink>
+        ))}
       </nav>
 
       {/* Footer Actions */}

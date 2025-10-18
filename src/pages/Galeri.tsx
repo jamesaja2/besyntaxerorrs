@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Calendar, User, Tag } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -255,12 +256,15 @@ export function Galeri() {
 
                     {/* Read More */}
                     <div className="pt-3 border-t border-school-accent/10">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
                         className="text-school-accent hover:text-school-accent-dark w-full"
                       >
-                        Baca Selengkapnya
+                        <Link to={`/galeri/${encodeURIComponent(article.slug ?? article.id)}`} state={{ fallbackArticle: article }}>
+                          Baca Selengkapnya
+                        </Link>
                       </Button>
                     </div>
                   </CardContent>

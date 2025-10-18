@@ -2,6 +2,44 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 const DATA_ROOT = path.resolve(process.cwd(), 'data');
+const CACHE_TTL_MS = 10_000;
+
+type CollectionCacheEntry = {
+  data: unknown[];
+  expiresAt: number;
+};
+
+const collectionCache = new Map<CollectionName, CollectionCacheEntry>();
+
+function cloneData<T>(value: T): T {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function setCache(collection: CollectionName, data: unknown[]): void {
+  collectionCache.set(collection, {
+    data,
+    expiresAt: Date.now() + CACHE_TTL_MS
+  });
+}
+
+function getCachedCollection<T>(collection: CollectionName): T[] | null {
+  const cached = collectionCache.get(collection);
+  if (!cached) {
+    return null;
+  }
+  if (Date.now() > cached.expiresAt) {
+    collectionCache.delete(collection);
+    return null;
+  }
+  return cloneData(cached.data) as T[];
+}
+
+function invalidateCache(collection: CollectionName): void {
+  collectionCache.delete(collection);
+}
 
 export type CollectionName =
   | 'announcements'
@@ -27,14 +65,22 @@ async function ensureDataFile(collection: CollectionName) {
 }
 
 export async function readCollection<T = unknown>(collection: CollectionName): Promise<T[]> {
+  const cached = getCachedCollection<T>(collection);
+  if (cached) {
+    return cached;
+  }
+
   const file = await ensureDataFile(collection);
   const raw = await fs.readFile(file, 'utf-8');
-  return JSON.parse(raw) as T[];
+  const parsed = JSON.parse(raw) as T[];
+  setCache(collection, parsed);
+  return cloneData(parsed);
 }
 
 export async function writeCollection<T = unknown>(collection: CollectionName, data: T[]): Promise<void> {
   const file = await ensureDataFile(collection);
   await fs.writeFile(file, JSON.stringify(data, null, 2), 'utf-8');
+  setCache(collection, cloneData(data));
 }
 
 export async function findItem<T extends { id: string }>(collection: CollectionName, id: string): Promise<T | undefined> {
@@ -58,4 +104,8 @@ export async function removeItem<T extends { id: string }>(collection: Collectio
   const data = await readCollection<T>(collection);
   const filtered = data.filter((item) => item.id !== id);
   await writeCollection(collection, filtered);
+}
+
+export function clearFileDbCache() {
+  collectionCache.clear();
 }

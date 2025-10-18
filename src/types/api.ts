@@ -88,14 +88,69 @@ export interface ValidatorHistory {
   updatedAt?: string;
 }
 
-export interface WawasanContent {
+export type WawasanKey = 'sejarah' | 'visi-misi' | 'struktur' | 'our-teams';
+
+export interface WawasanTimelineItem {
   id: string;
-  key: 'sejarah' | 'visi-misi' | 'struktur' | 'our-teams';
-  title: string;
-  content: string;
-  media?: string;
+  period: string;
+  description: string;
+  order: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface WawasanHeritageValue {
+  id: string;
+  value: string;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WawasanStructureEntry {
+  id: string;
+  position: string;
+  name: string;
+  department?: string | null;
+  parentId?: string | null;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WawasanSection<TContent = Record<string, unknown>> {
+  id: string;
+  key: WawasanKey;
+  title: string;
+  mediaUrl?: string | null;
+  content: TContent;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WawasanSectionPayload<TContent = Record<string, unknown>> {
+  title: string;
+  mediaUrl?: string | null;
+  content: TContent;
+}
+
+export interface WawasanTimelinePayload {
+  period: string;
+  description: string;
+  order?: number;
+}
+
+export interface WawasanHeritagePayload {
+  value: string;
+  order?: number;
+}
+
+export interface WawasanStructurePayload {
+  position: string;
+  name: string;
+  department?: string;
+  parentId?: string | null;
+  order?: number;
 }
 
 export interface DashboardSummary {
@@ -252,4 +307,66 @@ export interface SubjectSummary {
   id: string;
   name: string;
   code: string;
+}
+
+export interface AdminSettings {
+  sentryDsn: string | null;
+  virusTotalApiKey: string | null;
+  googleSafeBrowsingKey: string | null;
+  geminiApiKey: string | null;
+  allowedOrigins: string[];
+}
+
+export interface AdminSettingsPayload {
+  sentryDsn?: string | null;
+  virusTotalApiKey?: string | null;
+  googleSafeBrowsingKey?: string | null;
+  geminiApiKey?: string | null;
+  allowedOrigins?: string[] | string;
+}
+
+export interface AiDomainAnalysis {
+  url: string;
+  normalizedUrl: string;
+  resolvedUrl: string | null;
+  statusCode: number | null;
+  fetchedAt: string;
+  headers: Record<string, string>;
+  contentSnippet: string | null;
+  pageTitle: string | null;
+  pageDescription: string | null;
+  verdict: 'safe' | 'gambling' | 'suspicious' | 'unknown';
+  confidence: number | null;
+  summary: string;
+  signals: string[];
+  model: string;
+  provider: string;
+  rawModelResponse: string;
+  warnings: string[];
+}
+
+export type SeoTopic = 'landing' | 'announcements' | 'gallery' | 'faq';
+
+export interface SeoChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  keywords?: string[];
+  recommendations?: string[];
+  suggestedTitle?: string | null;
+  suggestedDescription?: string | null;
+  followUpQuestions?: string[];
+}
+
+export interface SeoChatPayload {
+  topic: SeoTopic;
+  messages: Array<Pick<SeoChatMessage, 'role' | 'content'>>;
+}
+
+export interface SeoChatResponse {
+  reply: string;
+  keywords: string[];
+  recommendations: string[];
+  suggestedTitle: string | null;
+  suggestedDescription: string | null;
+  followUpQuestions: string[];
 }

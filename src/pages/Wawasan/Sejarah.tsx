@@ -1,14 +1,27 @@
-import React from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Heart, Book, Award } from 'lucide-react';
+import { Calendar, Heart, Book, Award, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SEO } from '@/components/SEO';
 import { Section, SectionHeader, SectionTitle, SectionDescription } from '@/components/sections/Section';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { sejarahData } from '@/data/sejarah';
+import { useWawasanSection } from '@/hooks/useWawasanSection';
+import { sejarahFallback, sejarahMeta, type HistoryContent } from '@/data/sejarah';
 
 export function Sejarah() {
+  const { content, metadata, isLoading, isError, usedFallback } = useWawasanSection<HistoryContent>({
+    key: 'sejarah',
+    fallback: {
+      content: sejarahFallback,
+      title: sejarahMeta.title,
+      mediaUrl: sejarahMeta.mediaUrl
+    }
+  });
+
+  const [firstWord, ...restWords] = metadata.title.split(' ');
+  const highlightText = restWords.join(' ');
+  const showFallbackNotice = !isLoading && (isError || usedFallback);
+
   const timelineVariants = {
     hidden: { opacity: 0, x: -50 },
     visible: (i: number) => ({
@@ -17,7 +30,7 @@ export function Sejarah() {
       transition: {
         duration: 0.6,
         delay: i * 0.2,
-        ease: "easeOut",
+        ease: 'easeOut' as const,
       },
     }),
   };
@@ -34,14 +47,29 @@ export function Sejarah() {
         <Section>
           <SectionHeader>
             <SectionTitle>
-              Sejarah 
-              <span className="gradient-text">St. Louis 1</span>
+              {firstWord}
+              {highlightText ? (
+                <>
+                  {' '}
+                  <span className="gradient-text">{highlightText}</span>
+                </>
+              ) : null}
             </SectionTitle>
             <SectionDescription>
-              Perjalanan panjang lebih dari 160 tahun dalam mengembangkan pendidikan 
-              Katolik berkualitas dengan nilai-nilai Vinsensian di Surabaya.
+              {content.introDescription}
             </SectionDescription>
           </SectionHeader>
+
+          {showFallbackNotice && (
+            <motion.div
+              className="mb-8 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-400"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <AlertCircle className="h-4 w-4" />
+              Konten ditampilkan dari data cadangan.
+            </motion.div>
+          )}
 
           {/* Timeline */}
           <div className="relative">
@@ -49,9 +77,9 @@ export function Sejarah() {
             <div className="absolute left-8 top-0 bottom-0 w-px bg-school-accent/30 hidden md:block"></div>
 
             <div className="space-y-12">
-              {sejarahData.content.map((period, index) => (
+              {content.timeline.map((period, index) => (
                 <motion.div
-                  key={period.period}
+                  key={period.id ?? period.period}
                   custom={index}
                   variants={timelineVariants}
                   initial="hidden"
@@ -97,7 +125,7 @@ export function Sejarah() {
                 <div className="text-center mb-8">
                   <Heart className="w-12 h-12 text-school-accent mx-auto mb-4" />
                   <h3 className="text-2xl font-bold text-school-text mb-2">
-                    {sejarahData.heritage.title}
+                    {content.heritage.title}
                   </h3>
                   <p className="text-school-text-muted">
                     Nilai-nilai yang menjadi fondasi pendidikan kami hingga saat ini
@@ -105,9 +133,9 @@ export function Sejarah() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sejarahData.heritage.values.map((value, index) => (
+                  {content.heritage.values.map((value, index) => (
                     <motion.div
-                      key={value}
+                      key={value.id ?? index}
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
@@ -115,7 +143,7 @@ export function Sejarah() {
                       className="flex items-center p-4 bg-school-secondary/30 rounded-xl"
                     >
                       <Book className="w-5 h-5 text-school-accent mr-3 flex-shrink-0" />
-                      <span className="text-school-text">{value}</span>
+                      <span className="text-school-text">{value.value}</span>
                     </motion.div>
                   ))}
                 </div>
@@ -134,20 +162,20 @@ export function Sejarah() {
             <div className="bg-school-secondary/50 rounded-2xl p-8 border border-school-accent/20">
               <Award className="w-12 h-12 text-school-accent mx-auto mb-4" />
               <h3 className="text-2xl font-bold text-school-text mb-4">
-                Bergabunglah dengan Tradisi Keunggulan
+                {content.cta.title}
               </h3>
               <p className="text-school-text-muted mb-6 max-w-2xl mx-auto">
-                Menjadi bagian dari komunitas pendidikan yang telah membuktikan 
-                komitmennya dalam mengembangkan generasi beriman, berbudi, dan berprestasi 
-                selama lebih dari satu setengah abad.
+                {content.cta.description}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild className="bg-school-accent hover:bg-school-accent/80 text-school-primary">
-                  <Link to="/pcpdb">Daftar Sekarang</Link>
+                  <Link to={content.cta.primary.href}>{content.cta.primary.label}</Link>
                 </Button>
-                <Button asChild variant="outline">
-                  <Link to="/wawasan/visi-misi">Lihat Visi & Misi</Link>
-                </Button>
+                {content.cta.secondary ? (
+                  <Button asChild variant="outline">
+                    <Link to={content.cta.secondary.href}>{content.cta.secondary.label}</Link>
+                  </Button>
+                ) : null}
               </div>
             </div>
           </motion.div>

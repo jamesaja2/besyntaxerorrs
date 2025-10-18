@@ -1,8 +1,9 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Home } from '@/pages/Home';
 import { Ekstrakulikuler } from '@/pages/Ekstrakulikuler';
 import { Galeri } from '@/pages/Galeri';
+import { ArticleDetail } from '@/pages/ArticleDetail';
 import { WawasanIndex } from '@/pages/Wawasan/Index';
 import { Sejarah } from '@/pages/Wawasan/Sejarah';
 import { VisiMisi } from '@/pages/Wawasan/VisiMisi';
@@ -20,6 +21,8 @@ import { DashboardMain } from '@/pages/Dashboard/DashboardMain';
 import AdminDashboard from '@/pages/Dashboard/AdminDashboard';
 import TeacherDashboard from '@/pages/Dashboard/TeacherDashboard';
 import StudentDashboard from '@/pages/Dashboard/StudentDashboard';
+import GuestDashboard from '@/pages/Dashboard/GuestDashboard';
+import ParentDashboard from '@/pages/Dashboard/ParentDashboard';
 
 // LMS Components (we'll create these next)
 // import CoursesPage from '@/pages/LMS/CoursesPage';
@@ -31,6 +34,7 @@ export function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/ekstrakulikuler" element={<Ekstrakulikuler />} />
       <Route path="/galeri" element={<Galeri />} />
+  <Route path="/galeri/:slug" element={<ArticleDetail />} />
       <Route path="/wawasan" element={<WawasanIndex />} />
       <Route path="/wawasan/sejarah" element={<Sejarah />} />
       <Route path="/wawasan/visi-misi" element={<VisiMisi />} />
@@ -46,10 +50,31 @@ export function AppRoutes() {
       <Route path="/dashboard" element={<DashboardLayout />}>
         {/* Role-based Dashboard Main */}
         <Route index element={<DashboardMain />} />
-        
-    <Route path="admin" element={<AdminDashboard />} />
-    <Route path="teacher" element={<TeacherDashboard />} />
-    <Route path="student" element={<StudentDashboard />} />
+
+        <Route path="admin">
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path=":section" element={<AdminDashboard />} />
+        </Route>
+
+        <Route path="teacher">
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path=":section" element={<TeacherDashboard />} />
+        </Route>
+
+        <Route path="student">
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path=":section" element={<StudentDashboard />} />
+        </Route>
+
+        <Route path="parent">
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path=":section" element={<ParentDashboard />} />
+        </Route>
+
+        <Route path="guest">
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path=":section" element={<GuestDashboard />} />
+        </Route>
       </Route>
     </Routes>
   );
