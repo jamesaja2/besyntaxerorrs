@@ -67,7 +67,39 @@ export function Section({
 }
 
 export const SectionHeader = motion.div;
-export const SectionTitle = motion.h2;
+
+type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+
+interface SectionTitleProps extends React.ComponentProps<typeof motion.h2> {
+  as?: HeadingLevel;
+}
+
+const defaultTitleVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, delay: 0.1, ease: 'easeOut' as const }
+  }
+};
+
+export function SectionTitle({
+  as = 'h2',
+  className,
+  variants = defaultTitleVariants,
+  ...props
+}: SectionTitleProps) {
+  const Component = (motion as Record<HeadingLevel, typeof motion.h2>)[as] ?? motion.h2;
+
+  return (
+    <Component
+      className={cn('text-3xl sm:text-4xl lg:text-5xl font-bold text-school-text mb-4', className)}
+      variants={variants}
+      {...props}
+    />
+  );
+}
+
 export const SectionDescription = motion.p;
 
 SectionHeader.defaultProps = {
@@ -83,15 +115,7 @@ SectionHeader.defaultProps = {
 };
 
 SectionTitle.defaultProps = {
-  className: "text-3xl sm:text-4xl lg:text-5xl font-bold text-school-text mb-4",
-  variants: {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.6, delay: 0.1, ease: "easeOut" },
-    },
-  },
+  variants: defaultTitleVariants,
 };
 
 SectionDescription.defaultProps = {

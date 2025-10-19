@@ -78,7 +78,7 @@ export function FAQ() {
       <div className="min-h-screen pt-20">
         <Section>
           <SectionHeader>
-            <SectionTitle>
+            <SectionTitle as="h1">
               Frequently Asked 
               <span className="gradient-text">Questions</span>
             </SectionTitle>

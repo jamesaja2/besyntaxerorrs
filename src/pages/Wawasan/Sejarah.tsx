@@ -46,7 +46,7 @@ export function Sejarah() {
       <div className="min-h-screen pt-20">
         <Section>
           <SectionHeader>
-            <SectionTitle>
+            <SectionTitle as="h1">
               {firstWord}
               {highlightText ? (
                 <>

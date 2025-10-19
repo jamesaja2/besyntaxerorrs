@@ -100,7 +100,7 @@ export function PCPDB() {
       <div className="min-h-screen pt-20">
         <Section>
           <SectionHeader>
-            <SectionTitle>
+            <SectionTitle as="h1">
               PCPDB 
               <span className="gradient-text">2025/2026</span>
             </SectionTitle>

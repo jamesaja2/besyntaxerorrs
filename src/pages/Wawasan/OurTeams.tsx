@@ -188,7 +188,7 @@ export function OurTeams() {
       <div className="min-h-screen pt-20">
         <Section>
           <SectionHeader>
-            <SectionTitle>
+            <SectionTitle as="h1">
               Tim 
               <span className="gradient-text">Kami</span>
             </SectionTitle>

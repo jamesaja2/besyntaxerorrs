@@ -107,7 +107,7 @@ export function Ekstrakulikuler() {
       <div className="min-h-screen pt-20">
         <Section>
           <SectionHeader>
-            <SectionTitle>
+            <SectionTitle as="h1">
               Ekstrakurikuler 
               <span className="gradient-text">St. Louis 1</span>
             </SectionTitle>

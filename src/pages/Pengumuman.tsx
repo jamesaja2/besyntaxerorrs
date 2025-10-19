@@ -96,7 +96,7 @@ export function Pengumuman() {
       <div className="min-h-screen pt-20">
         <Section>
           <SectionHeader>
-            <SectionTitle>
+            <SectionTitle as="h1">
               Pengumuman 
               <span className="gradient-text">Terbaru</span>
             </SectionTitle>

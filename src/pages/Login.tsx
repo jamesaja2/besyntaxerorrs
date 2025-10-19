@@ -88,7 +88,7 @@ export function Login() {
       <div className="min-h-screen pt-20 flex items-center bg-school-secondary">
         <Section className="flex-1">
           <SectionHeader>
-            <SectionTitle>
+            <SectionTitle as="h1">
               Login 
               <span className="gradient-text">Portal</span>
             </SectionTitle>
