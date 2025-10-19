@@ -139,7 +139,7 @@ module.exports = {
         "scale-in": "scale-in 0.4s ease-out",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter Variable", "Inter", "system-ui", "sans-serif"],
       },
       backgroundImage: {
         'batik-pattern': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-opacity='0.08'%3E%3Cpath d='M50 30c11.046 0 20 8.954 20 20s-8.954 20-20 20-20-8.954-20-20 8.954-20 20-20zm0 5c-8.284 0-15 6.716-15 15s6.716 15 15 15 15-6.716 15-15-6.716-15-15-15z' fill='%230056A4'/%3E%3Cpath d='M25 25h2v2h-2zm0 48h2v2h-2zm48-48h2v2h-2zm0 48h2v2h-2z' fill='%236AB7FF'/%3E%3C/g%3E%3C/svg%3E")`,

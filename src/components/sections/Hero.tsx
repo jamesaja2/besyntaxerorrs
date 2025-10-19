@@ -10,8 +10,8 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.1,
+      staggerChildren: 0.12,
+      delayChildren: 0,
     },
   },
 };
@@ -22,7 +22,7 @@ const itemVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.8,
+      duration: 0.45,
       ease: "easeOut",
     },
   },
@@ -73,13 +73,10 @@ export function Hero() {
           </motion.h1>
 
           {/* Tagline */}
-          <motion.p
-            variants={itemVariants}
-            className="text-xl sm:text-2xl text-school-text-muted mb-8 font-light max-w-3xl mx-auto leading-relaxed"
-          >
+          <p className="text-xl sm:text-2xl text-school-text-muted mb-8 font-light max-w-3xl mx-auto leading-relaxed">
             Sekolah Katolik berkarakter Vinsensian yang mengembangkan pribadi 
             <span className="text-school-accent font-medium"> Be Excellent In Faith And Knowledge</span>
-          </motion.p>
+          </p>
 
           {/* Stats */}
           <motion.div
