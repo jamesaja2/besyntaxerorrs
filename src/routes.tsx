@@ -23,6 +23,7 @@ import TeacherDashboard from '@/pages/Dashboard/TeacherDashboard';
 import StudentDashboard from '@/pages/Dashboard/StudentDashboard';
 import GuestDashboard from '@/pages/Dashboard/GuestDashboard';
 import ParentDashboard from '@/pages/Dashboard/ParentDashboard';
+import AdminUserManagement from '@/pages/Dashboard/AdminUserManagement';
 
 // LMS Components (we'll create these next)
 // import CoursesPage from '@/pages/LMS/CoursesPage';
@@ -53,6 +54,7 @@ export function AppRoutes() {
 
         <Route path="admin">
           <Route index element={<Navigate to="overview" replace />} />
+          <Route path="users" element={<AdminUserManagement />} />
           <Route path=":section" element={<AdminDashboard />} />
         </Route>
 

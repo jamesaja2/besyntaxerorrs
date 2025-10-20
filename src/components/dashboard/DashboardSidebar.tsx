@@ -35,6 +35,7 @@ const navigationByRole: Record<UserRole, NavItem[]> = {
     { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/admin/overview' },
     { label: 'Landing Content', icon: Home, to: '/dashboard/admin/landing' },
     { label: 'Wawasan Content', icon: BookOpen, to: '/dashboard/admin/wawasan' },
+    { label: 'User Management', icon: Users, to: '/dashboard/admin/users' },
     { label: 'Documents', icon: FileText, to: '/dashboard/admin/documents' },
     { label: 'Domain Validator', icon: ShieldCheck, to: '/dashboard/admin/validator' },
     { label: 'AI Domain Analyst', icon: Sparkles, to: '/dashboard/admin/validator-ai' },

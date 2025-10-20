@@ -296,6 +296,38 @@ export interface BasicUserSummary {
   status?: string;
 }
 
+export type UserRole = 'admin' | 'teacher' | 'student' | 'parent' | 'guest';
+export type UserStatus = 'active' | 'inactive';
+
+export interface UserRecord {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  phone: string | null;
+  avatarUrl: string | null;
+  classId: string | null;
+  lastLogin: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUserPayload {
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  phone?: string;
+  avatarUrl?: string;
+  classId?: string;
+  password: string;
+}
+
+export type UpdateUserPayload = Partial<Omit<CreateUserPayload, 'password'>> & {
+  password?: string;
+};
+
 export interface SchoolClassSummary {
   id: string;
   name: string;
