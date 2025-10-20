@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,6 +8,8 @@ import * as Sentry from '@sentry/node';
 import routes from './routes/index.js';
 import { env } from './config/env.js';
 import { getSettings, loadSettings, subscribeSettings, type RuntimeSettings } from './services/settingsService.js';
+
+dotenv.config({ path: '/home/jelastic/besyntaxerorrs/server/.env' });
 
 const app = express();
 
