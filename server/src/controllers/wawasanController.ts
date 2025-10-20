@@ -76,6 +76,10 @@ type SectionContent = JsonRecord & {
 const TIMELINE_SECTION_KEY: WawasanKey = 'sejarah';
 const STRUCTURE_SECTION_KEY: WawasanKey = 'struktur';
 
+function isMissingDelegateError(error: unknown) {
+  return error instanceof TypeError && /findMany/.test(error.message);
+}
+
 function isWawasanKey(value: string): value is WawasanKey {
   return SECTION_KEYS.includes(value as WawasanKey);
 }
@@ -170,54 +174,90 @@ async function buildSectionResponse(section: WawasanContent) {
 
   switch (key) {
     case 'sejarah': {
-      const [timelineEntries, heritageValues] = await Promise.all([
-        prisma.wawasanTimelineEntry.findMany({
-          where: { sectionKey: TIMELINE_SECTION_KEY },
-          orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
-        }),
-        prisma.wawasanHeritageValue.findMany({
-          where: { sectionKey: TIMELINE_SECTION_KEY },
-          orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
-        })
-      ]);
+      try {
+        const [timelineEntries, heritageValues] = await Promise.all([
+          prisma.wawasanTimelineEntry.findMany({
+            where: { sectionKey: TIMELINE_SECTION_KEY },
+            orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+          }),
+          prisma.wawasanHeritageValue.findMany({
+            where: { sectionKey: TIMELINE_SECTION_KEY },
+            orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+          })
+        ]);
 
-      const heritageBase = baseContent.heritage ?? {};
-      const content = {
-        ...baseContent,
-        timeline: timelineEntries.map(serializeTimeline),
-        heritage: {
-          ...heritageBase,
-          values: heritageValues.map(serializeHeritageValue)
+        const heritageBase = baseContent.heritage ?? {};
+        const content = {
+          ...baseContent,
+          timeline: timelineEntries.map(serializeTimeline),
+          heritage: {
+            ...heritageBase,
+            values: heritageValues.map(serializeHeritageValue)
+          }
+        };
+
+        return serializeSection(section, content);
+      } catch (error) {
+        if (isMissingDelegateError(error)) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              '[wawasan] Prisma delegates missing for timeline/heritage. Returning stored JSON content.'
+            );
+          }
+          return serializeSection(section, baseContent);
         }
-      };
-
-      return serializeSection(section, content);
+        throw error;
+      }
     }
     case 'struktur': {
-      const structure = await prisma.wawasanStructureEntry.findMany({
-        where: { sectionKey: STRUCTURE_SECTION_KEY },
-        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
-      });
+      try {
+        const structure = await prisma.wawasanStructureEntry.findMany({
+          where: { sectionKey: STRUCTURE_SECTION_KEY },
+          orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+        });
 
-      const content = {
-        ...baseContent,
-        entries: structure.map(serializeStructure)
-      };
+        const content = {
+          ...baseContent,
+          entries: structure.map(serializeStructure)
+        };
 
-      return serializeSection(section, content);
+        return serializeSection(section, content);
+      } catch (error) {
+        if (isMissingDelegateError(error)) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              '[wawasan] Prisma delegate missing for structure. Returning stored JSON content.'
+            );
+          }
+          return serializeSection(section, baseContent);
+        }
+        throw error;
+      }
     }
     case 'our-teams': {
-      const members = await prisma.teamMember.findMany({
-        include: { specializations: true },
-        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
-      });
+      try {
+        const members = await prisma.teamMember.findMany({
+          include: { specializations: true },
+          orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+        });
 
-      const content = {
-        ...baseContent,
-        members: members.map(serializeTeamMember)
-      };
+        const content = {
+          ...baseContent,
+          members: members.map(serializeTeamMember)
+        };
 
-      return serializeSection(section, content);
+        return serializeSection(section, content);
+      } catch (error) {
+        if (isMissingDelegateError(error)) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              '[wawasan] Prisma delegate missing for team members. Returning stored JSON content.'
+            );
+          }
+          return serializeSection(section, baseContent);
+        }
+        throw error;
+      }
     }
     default:
       return serializeSection(section, baseContent);
