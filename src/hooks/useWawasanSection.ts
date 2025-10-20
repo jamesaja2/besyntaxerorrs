@@ -34,6 +34,65 @@ interface UseWawasanSectionResult<T> {
   error: WawasanQueryResult<T>['error'];
 }
 
+function cloneDeep<T>(value: T): T {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
+  }
+
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function mergeWithFallback<T>(
+  fallbackValue: T,
+  sourceValue: unknown
+): T {
+  if (!isPlainObject(fallbackValue) || !isPlainObject(sourceValue)) {
+    if (sourceValue === undefined || sourceValue === null) {
+      return cloneDeep(fallbackValue);
+    }
+    return cloneDeep(sourceValue as T);
+  }
+
+  const result: Record<string, unknown> = {};
+  const keys = new Set([
+    ...Object.keys(fallbackValue as Record<string, unknown>),
+    ...Object.keys(sourceValue)
+  ]);
+
+  for (const key of keys) {
+    const fallbackChild = (fallbackValue as Record<string, unknown>)[key];
+    const sourceChild = (sourceValue as Record<string, unknown>)[key];
+
+    if (Array.isArray(sourceChild)) {
+      result[key] = sourceChild;
+      continue;
+    }
+
+    if (isPlainObject(fallbackChild) && isPlainObject(sourceChild)) {
+      result[key] = mergeWithFallback(fallbackChild, sourceChild);
+      continue;
+    }
+
+    if (sourceChild === undefined) {
+      result[key] = cloneDeep(fallbackChild);
+      continue;
+    }
+
+    if (isPlainObject(sourceChild)) {
+      result[key] = mergeWithFallback({}, sourceChild);
+      continue;
+    }
+
+    result[key] = sourceChild ?? null;
+  }
+
+  return result as T;
+}
+
 export function useWawasanSection<T>({ key, fallback }: UseWawasanSectionOptions<T>): UseWawasanSectionResult<T> {
   const query = useQuery<WawasanSection<T>, Error>({
     queryKey: ['wawasan', key],
@@ -47,11 +106,20 @@ export function useWawasanSection<T>({ key, fallback }: UseWawasanSectionOptions
   const fallbackMediaUrl = fallback.mediaUrl ?? null;
 
   const { content, usedFallback } = useMemo(() => {
-    if (query.isError || !query.data || query.data.content === undefined) {
-      return { content: fallbackContent, usedFallback: true };
+    if (query.isError || !query.data || query.data.content === undefined || query.data.content === null) {
+      return { content: cloneDeep(fallbackContent), usedFallback: true };
     }
 
-    return { content: query.data.content, usedFallback: false };
+    const resolvedContent = query.data.content;
+
+    if (isPlainObject(fallbackContent) && isPlainObject(resolvedContent)) {
+      return {
+        content: mergeWithFallback(fallbackContent, resolvedContent),
+        usedFallback: false
+      };
+    }
+
+    return { content: resolvedContent, usedFallback: false };
   }, [query.data, query.isError, fallbackContent]);
 
   const metadata: WawasanMetadata = useMemo(
