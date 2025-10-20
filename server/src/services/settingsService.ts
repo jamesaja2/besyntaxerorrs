@@ -23,13 +23,19 @@ const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 const DEFAULT_SENTRY_DSN = 'https://e09c29bb2b4c4e4b032e4605d01aa964@o4510205690314752.ingest.de.sentry.io/4510205691887696';
 
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'https://redirect.syntaxerorrs.my.id',
+  'https://besyntax.jh-beon.cloud'
+];
+
 const DEFAULT_SETTINGS: RuntimeSettings = {
   sentryDsn: env.SENTRY_DSN === '' ? null : env.SENTRY_DSN ?? DEFAULT_SENTRY_DSN,
   virusTotalApiKey: env.VIRUSTOTAL_API_KEY ?? null,
   googleSafeBrowsingKey: env.GOOGLE_SAFEBROWSING_KEY ?? null,
   geminiApiKey: env.GOOGLE_GEMINI_API_KEY ?? null,
   allowedOrigins:
-    env.ALLOW_ORIGINS?.split(',').map((origin) => origin.trim()).filter(Boolean) ?? ['http://localhost:5173']
+    env.ALLOW_ORIGINS?.split(',').map((origin) => origin.trim()).filter(Boolean) ?? DEFAULT_ALLOWED_ORIGINS
 };
 
 let cachedSettings: RuntimeSettings | null = null;
@@ -51,6 +57,9 @@ function sanitizeOrigins(input: string[] | string | null | undefined): string[] 
 function sanitizeSettings(raw: SettingsInput, base: RuntimeSettings): RuntimeSettings {
   const allowedOrigins = sanitizeOrigins(raw.allowedOrigins);
 
+  const mergedAllowedOrigins = allowedOrigins.length ? allowedOrigins : base.allowedOrigins;
+  const uniqueOrigins = Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...mergedAllowedOrigins]));
+
   return {
     sentryDsn: raw.sentryDsn !== undefined ? (raw.sentryDsn ? raw.sentryDsn.trim() : null) : base.sentryDsn,
     virusTotalApiKey:
@@ -67,7 +76,7 @@ function sanitizeSettings(raw: SettingsInput, base: RuntimeSettings): RuntimeSet
           ? raw.geminiApiKey.trim()
           : null
         : base.geminiApiKey,
-    allowedOrigins: allowedOrigins.length ? allowedOrigins : base.allowedOrigins
+    allowedOrigins: uniqueOrigins
   };
 }
 

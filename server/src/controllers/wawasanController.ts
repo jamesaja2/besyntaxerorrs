@@ -80,6 +80,12 @@ function isMissingDelegateError(error: unknown) {
   return error instanceof TypeError && /findMany/.test(error.message);
 }
 
+function warnMissingDelegate(context: string) {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(`[wawasan] Prisma delegate missing for ${context}. Using fallback dataset.`);
+  }
+}
+
 function isWawasanKey(value: string): value is WawasanKey {
   return SECTION_KEYS.includes(value as WawasanKey);
 }
@@ -199,11 +205,7 @@ async function buildSectionResponse(section: WawasanContent) {
         return serializeSection(section, content);
       } catch (error) {
         if (isMissingDelegateError(error)) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(
-              '[wawasan] Prisma delegates missing for timeline/heritage. Returning stored JSON content.'
-            );
-          }
+          warnMissingDelegate('timeline/heritage');
           return serializeSection(section, baseContent);
         }
         throw error;
@@ -224,11 +226,7 @@ async function buildSectionResponse(section: WawasanContent) {
         return serializeSection(section, content);
       } catch (error) {
         if (isMissingDelegateError(error)) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(
-              '[wawasan] Prisma delegate missing for structure. Returning stored JSON content.'
-            );
-          }
+          warnMissingDelegate('structure');
           return serializeSection(section, baseContent);
         }
         throw error;
@@ -249,11 +247,7 @@ async function buildSectionResponse(section: WawasanContent) {
         return serializeSection(section, content);
       } catch (error) {
         if (isMissingDelegateError(error)) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(
-              '[wawasan] Prisma delegate missing for team members. Returning stored JSON content.'
-            );
-          }
+          warnMissingDelegate('team members');
           return serializeSection(section, baseContent);
         }
         throw error;
@@ -353,12 +347,20 @@ export async function updateWawasanSection(req: Request, res: Response) {
 }
 
 export async function listTimelineEntries(_req: Request, res: Response) {
-  const entries = await prisma.wawasanTimelineEntry.findMany({
-    where: { sectionKey: TIMELINE_SECTION_KEY },
-    orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
-  });
+  try {
+    const entries = await prisma.wawasanTimelineEntry.findMany({
+      where: { sectionKey: TIMELINE_SECTION_KEY },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+    });
 
-  return res.json(entries.map(serializeTimeline));
+    return res.json(entries.map(serializeTimeline));
+  } catch (error) {
+    if (isMissingDelegateError(error)) {
+      warnMissingDelegate('timeline list');
+      return res.json([]);
+    }
+    throw error;
+  }
 }
 
 export async function createTimelineEntry(req: Request, res: Response) {
@@ -414,11 +416,19 @@ export async function deleteTimelineEntry(req: Request, res: Response) {
 }
 
 export async function listHeritageValues(_req: Request, res: Response) {
-  const entries = await prisma.wawasanHeritageValue.findMany({
-    where: { sectionKey: TIMELINE_SECTION_KEY },
-    orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
-  });
-  return res.json(entries.map(serializeHeritageValue));
+  try {
+    const entries = await prisma.wawasanHeritageValue.findMany({
+      where: { sectionKey: TIMELINE_SECTION_KEY },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+    });
+    return res.json(entries.map(serializeHeritageValue));
+  } catch (error) {
+    if (isMissingDelegateError(error)) {
+      warnMissingDelegate('heritage list');
+      return res.json([]);
+    }
+    throw error;
+  }
 }
 
 export async function createHeritageValue(req: Request, res: Response) {
@@ -472,11 +482,19 @@ export async function deleteHeritageValue(req: Request, res: Response) {
 }
 
 export async function listStructureEntries(_req: Request, res: Response) {
-  const entries = await prisma.wawasanStructureEntry.findMany({
-    where: { sectionKey: STRUCTURE_SECTION_KEY },
-    orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
-  });
-  return res.json(entries.map(serializeStructure));
+  try {
+    const entries = await prisma.wawasanStructureEntry.findMany({
+      where: { sectionKey: STRUCTURE_SECTION_KEY },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+    });
+    return res.json(entries.map(serializeStructure));
+  } catch (error) {
+    if (isMissingDelegateError(error)) {
+      warnMissingDelegate('structure list');
+      return res.json([]);
+    }
+    throw error;
+  }
 }
 
 export async function createStructureEntry(req: Request, res: Response) {
