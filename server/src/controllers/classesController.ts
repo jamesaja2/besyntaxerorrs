@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 import type { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
@@ -13,38 +13,136 @@ const baseSchema = z.object({
     return value;
   }, z.number().int().min(1)),
   academicYear: z.string().min(4),
-  description: z.string().optional(),
-  homeroomTeacherId: z.string().optional()
+  description: z.string().optional().nullable(),
+  homeroomTeacherId: z.string().optional().nullable()
 });
 
 const createSchema = baseSchema;
 
-const updateSchema = baseSchema.partial({
-  name: true,
-  gradeLevel: true,
-  academicYear: true,
-  description: true,
-  homeroomTeacherId: true
-}).extend({
-  id: z.string()
+const updateSchema = baseSchema
+  .partial({
+    name: true,
+    gradeLevel: true,
+    academicYear: true,
+    description: true,
+    homeroomTeacherId: true
+  })
+  .extend({
+    id: z.string()
+  });
+
+const updateMembersSchema = z.object({
+  memberIds: z.array(z.string()).optional()
 });
 
-type ClassWithRelations = Prisma.SchoolClassGetPayload<{
-  include: {
-    homeroomTeacher: {
-      select: { id: true, name: true, email: true }
-    };
-    students: {
-      select: { id: true, name: true, email: true }
-    };
-    teacherAssignments: {
-      include: {
-        teacher: { select: { id: true, name: true, email: true } },
-        subject: { select: { id: true, name: true, code: true } }
+const classInclude = {
+  homeroomTeacher: {
+    select: { id: true, name: true, email: true }
+  },
+  memberships: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true
+        }
       }
-    };
-  };
-}>;
+    },
+    orderBy: {
+      assignedAt: 'asc' as const
+    }
+  },
+  teacherAssignments: {
+    include: {
+      teacher: { select: { id: true, name: true, email: true } },
+      subject: { select: { id: true, name: true, code: true } }
+    }
+  }
+} as const;
+
+type ClassWithRelations = Prisma.SchoolClassGetPayload<{ include: typeof classInclude }>;
+
+function normalizeIds(values: string[] | undefined) {
+  if (!values) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const raw of values) {
+    const trimmed = raw.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized;
+}
+
+async function ensureUsersExist(userIds: string[]) {
+  if (!userIds.length) {
+    return { missing: [] };
+  }
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true }
+  });
+  const existing = new Set(users.map((user) => user.id));
+  const missing = userIds.filter((id) => !existing.has(id));
+  return { missing };
+}
+
+async function syncClassMembers(
+  tx: Prisma.TransactionClient,
+  classId: string,
+  memberIds: string[]
+) {
+  const now = new Date();
+
+  await tx.userClassMembership.deleteMany({
+    where: {
+      classId,
+      NOT: { userId: { in: memberIds } }
+    }
+  });
+
+  if (!memberIds.length) {
+    return;
+  }
+
+  const existingMemberships = await tx.userClassMembership.findMany({
+    where: {
+      classId,
+      userId: { in: memberIds }
+    },
+    select: { userId: true }
+  });
+
+  const existing = new Set(existingMemberships.map((item) => item.userId));
+  const newMemberships = memberIds
+    .filter((userId) => !existing.has(userId))
+    .map((userId) => ({
+      userId,
+      classId,
+      assignedAt: now,
+      createdAt: now,
+      updatedAt: now
+    }));
+
+  if (newMemberships.length) {
+    await tx.userClassMembership.createMany({ data: newMemberships });
+  }
+
+  await tx.userClassMembership.updateMany({
+    where: {
+      classId,
+      userId: { in: memberIds }
+    },
+    data: { updatedAt: now }
+  });
+}
 
 function serializeClass(entry: ClassWithRelations) {
   return {
@@ -54,7 +152,14 @@ function serializeClass(entry: ClassWithRelations) {
     academicYear: entry.academicYear,
     description: entry.description,
     homeroomTeacher: entry.homeroomTeacher ?? null,
-    students: entry.students,
+    memberCount: entry.memberships.length,
+    members: entry.memberships.map((membership) => ({
+      id: membership.user.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      role: membership.user.role,
+      assignedAt: membership.assignedAt.toISOString()
+    })),
     teacherAssignments: entry.teacherAssignments.map((item) => ({
       id: item.id,
       role: item.role,
@@ -70,16 +175,7 @@ function serializeClass(entry: ClassWithRelations) {
 
 export async function listClasses(_req: AuthenticatedRequest, res: Response) {
   const classes = await prisma.schoolClass.findMany({
-    include: {
-      homeroomTeacher: { select: { id: true, name: true, email: true } },
-      students: { select: { id: true, name: true, email: true } },
-      teacherAssignments: {
-        include: {
-          teacher: { select: { id: true, name: true, email: true } },
-          subject: { select: { id: true, name: true, code: true } }
-        }
-      }
-    },
+    include: classInclude,
     orderBy: [{ gradeLevel: 'desc' }, { name: 'asc' }]
   });
 
@@ -90,16 +186,7 @@ export async function getClass(req: AuthenticatedRequest, res: Response) {
   const { id } = req.params;
   const item = await prisma.schoolClass.findUnique({
     where: { id },
-    include: {
-      homeroomTeacher: { select: { id: true, name: true, email: true } },
-      students: { select: { id: true, name: true, email: true } },
-      teacherAssignments: {
-        include: {
-          teacher: { select: { id: true, name: true, email: true } },
-          subject: { select: { id: true, name: true, code: true } }
-        }
-      }
-    }
+    include: classInclude
   });
 
   if (!item) {
@@ -112,7 +199,9 @@ export async function getClass(req: AuthenticatedRequest, res: Response) {
 export async function createClass(req: AuthenticatedRequest, res: Response) {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ message: 'Invalid class payload', issues: parsed.error.flatten() });
+    return res
+      .status(400)
+      .json({ message: 'Invalid class payload', issues: parsed.error.flatten() });
   }
 
   const created = await prisma.schoolClass.create({
@@ -123,16 +212,7 @@ export async function createClass(req: AuthenticatedRequest, res: Response) {
       description: parsed.data.description ?? null,
       homeroomTeacherId: parsed.data.homeroomTeacherId ?? null
     },
-    include: {
-      homeroomTeacher: { select: { id: true, name: true, email: true } },
-      students: { select: { id: true, name: true, email: true } },
-      teacherAssignments: {
-        include: {
-          teacher: { select: { id: true, name: true, email: true } },
-          subject: { select: { id: true, name: true, code: true } }
-        }
-      }
-    }
+    include: classInclude
   });
 
   return res.status(201).json(serializeClass(created));
@@ -141,7 +221,9 @@ export async function createClass(req: AuthenticatedRequest, res: Response) {
 export async function updateClass(req: AuthenticatedRequest, res: Response) {
   const parsed = updateSchema.safeParse({ ...req.body, id: req.params.id });
   if (!parsed.success) {
-    return res.status(400).json({ message: 'Invalid class update payload', issues: parsed.error.flatten() });
+    return res
+      .status(400)
+      .json({ message: 'Invalid class update payload', issues: parsed.error.flatten() });
   }
 
   const data: Prisma.SchoolClassUncheckedUpdateInput = {};
@@ -149,37 +231,65 @@ export async function updateClass(req: AuthenticatedRequest, res: Response) {
   if (parsed.data.gradeLevel !== undefined) data.gradeLevel = parsed.data.gradeLevel;
   if (parsed.data.academicYear !== undefined) data.academicYear = parsed.data.academicYear;
   if (parsed.data.description !== undefined) data.description = parsed.data.description;
-  if (parsed.data.homeroomTeacherId !== undefined) data.homeroomTeacherId = parsed.data.homeroomTeacherId;
+  if (parsed.data.homeroomTeacherId !== undefined) {
+    data.homeroomTeacherId = parsed.data.homeroomTeacherId;
+  }
 
   const updated = await prisma.schoolClass.update({
     where: { id: parsed.data.id },
     data,
-    include: {
-      homeroomTeacher: { select: { id: true, name: true, email: true } },
-      students: { select: { id: true, name: true, email: true } },
-      teacherAssignments: {
-        include: {
-          teacher: { select: { id: true, name: true, email: true } },
-          subject: { select: { id: true, name: true, code: true } }
-        }
-      }
-    }
+    include: classInclude
   });
 
   return res.json(serializeClass(updated));
+}
+
+export async function updateClassMembers(req: AuthenticatedRequest, res: Response) {
+  const { id } = req.params;
+  const parsed = updateMembersSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ message: 'Invalid member payload', issues: parsed.error.flatten() });
+  }
+
+  const classExists = await prisma.schoolClass.findUnique({ where: { id } });
+  if (!classExists) {
+    return res.status(404).json({ message: 'Class not found' });
+  }
+
+  const memberIds = normalizeIds(parsed.data.memberIds);
+
+  const { missing } = await ensureUsersExist(memberIds);
+  if (missing.length) {
+    return res.status(400).json({ message: 'Pengguna tidak ditemukan', missingUserIds: missing });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await syncClassMembers(tx, id, memberIds);
+  });
+
+  const payload = await prisma.schoolClass.findUniqueOrThrow({
+    where: { id },
+    include: classInclude
+  });
+
+  return res.json(serializeClass(payload));
 }
 
 export async function deleteClass(req: AuthenticatedRequest, res: Response) {
   const { id } = req.params;
 
   const dependencies = await prisma.$transaction([
-    prisma.user.count({ where: { classId: id } }),
+    prisma.userClassMembership.count({ where: { classId: id } }),
     prisma.classSchedule.count({ where: { classId: id } }),
     prisma.grade.count({ where: { classId: id } })
   ]);
 
   if (dependencies.some((count) => count > 0)) {
-    return res.status(409).json({ message: 'Cannot delete class with linked students, schedules, or grades' });
+    return res
+      .status(409)
+      .json({ message: 'Cannot delete class with linked members, schedules, or grades' });
   }
 
   await prisma.schoolClass.delete({ where: { id } });

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { fetchDocuments, downloadDocumentFile } from "@/api/documents";
 import { fetchSchedules } from "@/api/schedules";
@@ -13,8 +13,25 @@ import {
 
 function StudentDashboard() {
   const { user } = useAuth();
-  const classId = user?.classId ?? null;
+  const classOptions = useMemo(() => user?.classes ?? [], [user]);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(() =>
+    classOptions[0]?.id ?? null
+  );
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!classOptions.length) {
+      setSelectedClassId(null);
+      return;
+    }
+
+    setSelectedClassId((prev) => {
+      if (prev && classOptions.some((item) => item.id === prev)) {
+        return prev;
+      }
+      return classOptions[0]?.id ?? null;
+    });
+  }, [classOptions]);
 
   const {
     data: documents = [],
@@ -29,9 +46,9 @@ function StudentDashboard() {
     data: schedules = [],
     isLoading: schedulesLoading
   } = useQuery({
-    queryKey: ["schedules", "student", classId],
-    queryFn: () => fetchSchedules({ classId: classId ?? "" }),
-    enabled: Boolean(classId)
+    queryKey: ["schedules", "student", selectedClassId],
+    queryFn: () => fetchSchedules({ classId: selectedClassId ?? "" }),
+    enabled: Boolean(selectedClassId)
   });
 
   const downloadMutation = useMutation<Blob, unknown, DocumentRecord>({
@@ -107,21 +124,38 @@ function StudentDashboard() {
           <CalendarRange size={20} /> Jadwal Belajar
         </h2>
 
-        {!classId && (
+        {classOptions.length === 0 && (
           <p className="text-sm text-school-text-muted">Data kelas belum tersedia. Hubungi admin untuk memperbarui informasi akun.</p>
         )}
 
-        {classId && schedulesLoading && (
+        {classOptions.length > 1 && selectedClassId && (
+          <div className="mb-4 flex flex-col gap-2 text-sm">
+            <label className="font-medium text-school-text">Pilih kelas</label>
+            <select
+              className="w-full rounded-md border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-student"
+              value={selectedClassId}
+              onChange={(event) => setSelectedClassId(event.target.value)}
+            >
+              {classOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} • {item.academicYear}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {selectedClassId && schedulesLoading && (
           <div className="flex items-center gap-2 text-sm text-school-text-muted">
             <Loader2 size={16} className="animate-spin" /> Memuat jadwal...
           </div>
         )}
 
-        {classId && !schedulesLoading && schedules.length === 0 && (
+        {selectedClassId && !schedulesLoading && schedules.length === 0 && (
           <p className="text-sm text-school-text-muted">Jadwal belum tersedia untuk kelas Anda.</p>
         )}
 
-        {classId && !schedulesLoading && schedules.length > 0 && (
+        {selectedClassId && !schedulesLoading && schedules.length > 0 && (
           <div className="space-y-3 text-sm">
             {schedules.map((item: ScheduleItem) => (
               <div key={item.id} className="border border-school-border rounded-lg p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">

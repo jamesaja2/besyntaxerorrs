@@ -16,8 +16,10 @@ import {
   LifeBuoy,
   Sparkles,
   Bot,
-  BookOpen
+  BookOpen,
+  GraduationCap
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -26,7 +28,7 @@ interface SidebarProps {
 
 interface NavItem {
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   to: string;
 }
 
@@ -35,6 +37,7 @@ const navigationByRole: Record<UserRole, NavItem[]> = {
     { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/admin/overview' },
     { label: 'Landing Content', icon: Home, to: '/dashboard/admin/landing' },
     { label: 'Wawasan Content', icon: BookOpen, to: '/dashboard/admin/wawasan' },
+  { label: 'Class Management', icon: GraduationCap, to: '/dashboard/admin/classes' },
     { label: 'User Management', icon: Users, to: '/dashboard/admin/users' },
     { label: 'Documents', icon: FileText, to: '/dashboard/admin/documents' },
     { label: 'Domain Validator', icon: ShieldCheck, to: '/dashboard/admin/validator' },

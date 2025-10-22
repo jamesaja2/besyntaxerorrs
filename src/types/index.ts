@@ -6,7 +6,13 @@ export interface User {
   avatar?: string;
   role: UserRole;
   status: UserStatus;
-  classId?: string | null;
+  classIds: string[];
+  classes?: Array<{
+    id: string;
+    name: string;
+    gradeLevel?: number | null;
+    academicYear?: string | null;
+  }>;
   createdAt?: string;
   updatedAt?: string;
   lastLogin?: string;

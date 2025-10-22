@@ -1,8 +1,47 @@
 import { z } from 'zod';
 import type { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { verifyPassword } from '../utils/password.js';
 import { createToken, verifyToken } from '../utils/token.js';
 import { prisma } from '../lib/prisma.js';
+
+const authUserInclude = {
+  classMemberships: {
+    include: {
+      class: {
+        select: {
+          id: true,
+          name: true,
+          gradeLevel: true,
+          academicYear: true
+        }
+      }
+    },
+    orderBy: {
+      assignedAt: 'asc' as const
+    }
+  }
+} as const;
+
+type AuthUser = Prisma.UserGetPayload<{ include: typeof authUserInclude }>;
+
+function serializeAuthUser(user: AuthUser) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    classIds: user.classMemberships.map((membership) => membership.classId),
+    classes: user.classMemberships.map((membership) => ({
+      id: membership.class.id,
+      name: membership.class.name,
+      gradeLevel: membership.class.gradeLevel,
+      academicYear: membership.class.academicYear
+    })),
+    lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null
+  };
+}
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -32,29 +71,28 @@ export async function loginHandler(req: Request, res: Response) {
     return res.status(401).json({ message: 'Email atau password salah' });
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLogin: new Date() }
+  const fullUser = await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    });
+
+    return tx.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: authUserInclude
+    });
   });
 
   const token = createToken({
-    sub: user.id,
-    role: user.role,
-    email: user.email,
-    name: user.name
+    sub: fullUser.id,
+    role: fullUser.role,
+    email: fullUser.email,
+    name: fullUser.name
   });
 
   return res.json({
     token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      classId: user.classId,
-      lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null
-    }
+    user: serializeAuthUser(fullUser)
   });
 }
 
@@ -67,19 +105,14 @@ export async function meHandler(req: Request, res: Response) {
   const token = authHeader.replace('Bearer ', '');
   try {
     const payload = verifyToken(token);
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: authUserInclude
+    });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    return res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      classId: user.classId,
-      lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null
-    });
+    return res.json(serializeAuthUser(user));
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token' });
   }

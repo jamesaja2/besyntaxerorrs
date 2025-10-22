@@ -307,7 +307,8 @@ export interface UserRecord {
   status: UserStatus;
   phone: string | null;
   avatarUrl: string | null;
-  classId: string | null;
+  classIds: string[];
+  classes: SchoolClassSummary[];
   lastLogin: string | null;
   createdAt: string;
   updatedAt: string;
@@ -320,12 +321,13 @@ export interface CreateUserPayload {
   status: UserStatus;
   phone?: string;
   avatarUrl?: string;
-  classId?: string;
+  classIds?: string[];
   password: string;
 }
 
 export type UpdateUserPayload = Partial<Omit<CreateUserPayload, 'password'>> & {
   password?: string;
+  classIds?: string[];
 };
 
 export interface SchoolClassSummary {
@@ -339,6 +341,47 @@ export interface SubjectSummary {
   id: string;
   name: string;
   code: string;
+}
+
+export interface ClassMemberSummary {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  assignedAt: string;
+}
+
+export interface ClassTeacherAssignmentSummary {
+  id: string;
+  role: string | null;
+  subject: SubjectSummary | null;
+  teacher: BasicUserSummary | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SchoolClassRecord extends SchoolClassSummary {
+  description: string | null;
+  homeroomTeacher: BasicUserSummary | null;
+  memberCount: number;
+  members: ClassMemberSummary[];
+  teacherAssignments: ClassTeacherAssignmentSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateClassPayload {
+  name: string;
+  gradeLevel: number;
+  academicYear: string;
+  description?: string | null;
+  homeroomTeacherId?: string | null;
+}
+
+export type UpdateClassPayload = Partial<CreateClassPayload>;
+
+export interface UpdateClassMembersPayload {
+  memberIds?: string[];
 }
 
 export interface AdminSettings {

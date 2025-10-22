@@ -4,7 +4,7 @@ import type { AxiosError } from 'axios';
 import { Plus, Search, Edit, Trash2, RefreshCcw } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { withAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,8 +29,10 @@ import {
   fetchUsers,
   updateUser
 } from '@/api/users';
+import { fetchClasses } from '@/api/classes';
 import type {
   CreateUserPayload,
+  SchoolClassRecord,
   UpdateUserPayload,
   UserRecord,
   UserRole,
@@ -75,7 +77,7 @@ const baseSchema = z.object({
   status: z.enum(USER_STATUSES, { message: 'Status wajib dipilih' }),
   phone: optionalPhoneField,
   avatarUrl: optionalUrlField,
-  classId: optionalField
+  classIds: z.array(z.string()).optional()
 });
 
 const createSchema = baseSchema.extend({
@@ -123,6 +125,23 @@ function sanitizeOptional(value?: string | null) {
   return trimmed.length ? trimmed : undefined;
 }
 
+function normalizeClassIds(values?: string[] | null) {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const raw of values) {
+    const trimmed = raw.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized;
+}
+
 function isValidUrl(value: string) {
   try {
     const url = new URL(value);
@@ -145,12 +164,38 @@ function formatDate(value: string | null) {
   });
 }
 
+function formatClassLabel(classInfo: Pick<SchoolClassRecord, 'name' | 'gradeLevel' | 'academicYear'>) {
+  const segments: string[] = [classInfo.name];
+
+  if (classInfo.gradeLevel !== undefined && classInfo.gradeLevel !== null) {
+    segments.push(`Kelas ${classInfo.gradeLevel}`);
+  }
+
+  segments.push(classInfo.academicYear);
+
+  return segments.filter(Boolean).join(' - ');
+}
+
+function getUserClassLabels(user: UserRecord, classLookup: Map<string, string>) {
+  if (user.classes && user.classes.length > 0) {
+    return user.classes.map((item) => formatClassLabel(item));
+  }
+  if (!user.classIds || user.classIds.length === 0) {
+    return [];
+  }
+  return user.classIds.map((id) => classLookup.get(id) ?? `ID tidak dikenal: ${id}`);
+}
+
 function CreateUserForm({
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  classOptions,
+  isClassLoading
 }: {
   onSubmit: (values: CreateUserPayload) => void;
   isSubmitting: boolean;
+  classOptions: SchoolClassRecord[];
+  isClassLoading: boolean;
 }) {
   const form = useForm<CreateUserFormValues>({
     resolver: zodResolver(createSchema),
@@ -161,7 +206,7 @@ function CreateUserForm({
       status: 'active',
       phone: '',
       avatarUrl: '',
-      classId: '',
+      classIds: [],
       password: ''
     }
   });
@@ -169,6 +214,7 @@ function CreateUserForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors }
   } = form;
 
@@ -183,7 +229,7 @@ function CreateUserForm({
           status: values.status,
           phone: sanitizeOptional(values.phone),
           avatarUrl: sanitizeOptional(values.avatarUrl),
-          classId: sanitizeOptional(values.classId),
+          classIds: normalizeClassIds(values.classIds),
           password: values.password
         })
       )}
@@ -223,8 +269,40 @@ function CreateUserForm({
           <Input placeholder="Contoh: 081234567890" {...register('phone')} />
         </FormField>
 
-        <FormField label="Kelas / Departemen" error={errors.classId?.message}>
-          <Input placeholder="Opsional" {...register('classId')} />
+        <FormField label="Kelas / Departemen" error={errors.classIds?.message}>
+          <Controller
+            control={control}
+            name="classIds"
+            render={({ field }) => (
+              <select
+                className={`${selectClassName} min-h-[120px]`}
+                disabled={isClassLoading}
+                multiple
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  const selections = Array.from(event.target.selectedOptions).map(
+                    (option) => option.value
+                  );
+                  field.onChange(selections);
+                }}
+                value={field.value ?? []}
+              >
+                {classOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {formatClassLabel(item)}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+          <span className="text-xs text-muted-foreground">
+            Tahan Ctrl / Command untuk memilih lebih dari satu kelas.
+          </span>
+          {!isClassLoading && classOptions.length === 0 ? (
+            <span className="text-xs text-muted-foreground">
+              Belum ada kelas terdaftar.
+            </span>
+          ) : null}
         </FormField>
       </div>
 
@@ -246,11 +324,15 @@ function CreateUserForm({
 function EditUserForm({
   user,
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  classOptions,
+  isClassLoading
 }: {
   user: UserRecord;
   onSubmit: (values: UpdateUserPayload) => void;
   isSubmitting: boolean;
+  classOptions: SchoolClassRecord[];
+  isClassLoading: boolean;
 }) {
   const form = useForm<UpdateUserFormValues>({
     resolver: zodResolver(updateSchema),
@@ -261,7 +343,7 @@ function EditUserForm({
       status: user.status,
       phone: user.phone ?? '',
       avatarUrl: user.avatarUrl ?? '',
-      classId: user.classId ?? '',
+      classIds: user.classIds,
       password: ''
     }
   });
@@ -270,6 +352,7 @@ function EditUserForm({
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors }
   } = form;
 
@@ -281,7 +364,7 @@ function EditUserForm({
       status: user.status,
       phone: user.phone ?? '',
       avatarUrl: user.avatarUrl ?? '',
-      classId: user.classId ?? '',
+      classIds: user.classIds,
       password: ''
     });
   }, [reset, user]);
@@ -297,7 +380,7 @@ function EditUserForm({
           status: values.status,
           phone: sanitizeOptional(values.phone),
           avatarUrl: sanitizeOptional(values.avatarUrl),
-          classId: sanitizeOptional(values.classId),
+          classIds: normalizeClassIds(values.classIds),
           password: sanitizeOptional(values.password)
         })
       )}
@@ -337,8 +420,40 @@ function EditUserForm({
           <Input placeholder="Contoh: 081234567890" {...register('phone')} />
         </FormField>
 
-        <FormField label="Kelas / Departemen" error={errors.classId?.message}>
-          <Input placeholder="Opsional" {...register('classId')} />
+        <FormField label="Kelas / Departemen" error={errors.classIds?.message}>
+          <Controller
+            control={control}
+            name="classIds"
+            render={({ field }) => (
+              <select
+                className={`${selectClassName} min-h-[120px]`}
+                disabled={isClassLoading}
+                multiple
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  const selections = Array.from(event.target.selectedOptions).map(
+                    (option) => option.value
+                  );
+                  field.onChange(selections);
+                }}
+                value={field.value ?? []}
+              >
+                {classOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {formatClassLabel(item)}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+          <span className="text-xs text-muted-foreground">
+            Tahan Ctrl / Command untuk memilih lebih dari satu kelas.
+          </span>
+          {!isClassLoading && classOptions.length === 0 ? (
+            <span className="text-xs text-muted-foreground">
+              Belum ada kelas terdaftar.
+            </span>
+          ) : null}
         </FormField>
       </div>
 
@@ -420,6 +535,11 @@ function AdminUserManagement() {
     queryFn: fetchUsers
   });
 
+  const classesQuery = useQuery<SchoolClassRecord[]>({
+    queryKey: ['school-classes'],
+    queryFn: fetchClasses
+  });
+
   const createMutation = useMutation({
     mutationFn: (payload: CreateUserPayload) => createUser(payload),
     onSuccess: () => {
@@ -466,18 +586,29 @@ function AdminUserManagement() {
     }
   });
 
+  const classOptions: SchoolClassRecord[] = classesQuery.data ?? [];
+
+  const classLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    classOptions.forEach((item) => {
+      map.set(item.id, formatClassLabel(item));
+    });
+    return map;
+  }, [classOptions]);
+
   const users = usersQuery.data ?? [];
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
-      const matchesSearch = `${user.name} ${user.email}`
+      const classLabels = getUserClassLabels(user, classLookup);
+      const matchesSearch = `${user.name} ${user.email} ${classLabels.join(' ')}`
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
       const matchesRole = roleFilter === 'all' || user.role === roleFilter;
       const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
       return matchesSearch && matchesRole && matchesStatus;
     });
-  }, [users, searchTerm, roleFilter, statusFilter]);
+  }, [users, searchTerm, roleFilter, statusFilter, classLookup]);
 
   const stats = useMemo(() => {
     const total = users.length;
@@ -522,8 +653,11 @@ function AdminUserManagement() {
         </div>
         <div className="flex flex-wrap gap-3">
           <Button
-            disabled={usersQuery.isLoading}
-            onClick={() => usersQuery.refetch()}
+            disabled={usersQuery.isLoading || classesQuery.isLoading}
+            onClick={() => {
+              usersQuery.refetch();
+              classesQuery.refetch();
+            }}
             type="button"
             variant="outline"
           >
@@ -545,6 +679,12 @@ function AdminUserManagement() {
           )}
         >
           {feedback.message}
+        </div>
+      ) : null}
+
+      {classesQuery.isError ? (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          Tidak dapat memuat daftar kelas. Anda masih bisa menyimpan pengguna tanpa memilih kelas.
         </div>
       ) : null}
 
@@ -680,7 +820,10 @@ function AdminUserManagement() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-school-text">
-                      {user.classId ?? '-'}
+                      {(() => {
+                        const classLabels = getUserClassLabels(user, classLookup);
+                        return classLabels.length ? classLabels.join(', ') : '-';
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {formatDate(user.lastLogin)}
@@ -722,6 +865,8 @@ function AdminUserManagement() {
             </DialogDescription>
           </DialogHeader>
           <CreateUserForm
+            classOptions={classOptions}
+            isClassLoading={classesQuery.isLoading}
             isSubmitting={createMutation.isPending}
             onSubmit={(values) => createMutation.mutate(values)}
           />
@@ -739,6 +884,8 @@ function AdminUserManagement() {
                 </DialogDescription>
               </DialogHeader>
               <EditUserForm
+                classOptions={classOptions}
+                isClassLoading={classesQuery.isLoading}
                 isSubmitting={updateMutation.isPending}
                 onSubmit={(payload) =>
                   updateMutation.mutate({ id: editTarget.id, payload })

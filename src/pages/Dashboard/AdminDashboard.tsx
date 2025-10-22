@@ -9,7 +9,7 @@ import { fetchValidatorHistory, submitDomainCheck } from '@/api/validator';
 import { createSchedule, deleteSchedule, fetchSchedules, updateSchedule } from '@/api/schedules';
 import { fetchFaqItems, createFaqItem, updateFaqItem, deleteFaqItem } from '@/api/faq';
 import { fetchGallery, createGalleryItem, updateGalleryItem, deleteGalleryItem } from '@/api/gallery';
-import { fetchClasses } from '@/api/classes';
+import { createClass, deleteClass, fetchClasses, updateClass, updateClassMembers } from '@/api/classes';
 import { fetchSubjects } from '@/api/subjects';
 import { fetchUsers } from '@/api/users';
 import { fetchAdminSettings, updateAdminSettings } from '@/api/settings';
@@ -44,10 +44,14 @@ import type {
   SchedulePayload,
   ValidatorHistory,
   BasicUserSummary,
-  SchoolClassSummary,
+  ClassMemberSummary,
+  CreateClassPayload,
+  SchoolClassRecord,
   SubjectSummary,
   AdminSettings,
   AdminSettingsPayload,
+  UpdateClassMembersPayload,
+  UpdateClassPayload,
   AiDomainAnalysis,
   SeoChatMessage,
   SeoChatPayload,
@@ -90,7 +94,9 @@ import {
   Bot,
   RefreshCw,
   Send,
-  BookOpen
+  BookOpen,
+  GraduationCap,
+  Users
 } from 'lucide-react';
 
 const DAY_OPTIONS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -207,6 +213,14 @@ const TEAM_CATEGORY_OPTIONS: Array<{ value: TeamMember['category']; label: strin
   { value: 'support', label: 'Tenaga Pendukung' }
 ];
 
+const USER_ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  teacher: 'Guru',
+  student: 'Siswa',
+  parent: 'Orang Tua',
+  guest: 'Tamu'
+};
+
 interface WawasanFormState {
   id?: string;
   key: WawasanKey;
@@ -240,6 +254,7 @@ type AdminSection =
   | 'overview'
   | 'landing'
   | 'wawasan'
+  | 'classes'
   | 'documents'
   | 'validator'
   | 'validator-ai'
@@ -259,6 +274,10 @@ const ADMIN_SECTION_META: Record<AdminSection, { title: string; description: str
   wawasan: {
     title: 'Kelola Konten Wawasan',
     description: 'Atur Sejarah, Visi Misi, Struktur Organisasi, dan konten tim agar selalu terbaru.'
+  },
+  classes: {
+    title: 'Manajemen Kelas',
+    description: 'Tambah kelas baru, atur wali kelas, dan kelola anggota lintas peran.'
   },
   documents: {
     title: 'Manajemen Dokumen Resmi',
@@ -316,6 +335,12 @@ const ADMIN_QUICK_LINKS: Array<{ key: AdminSection; label: string; description: 
     label: 'AI Analyst',
     description: 'Analisa domain menggunakan Gemini AI untuk mendeteksi situs judi.',
     icon: Sparkles
+  },
+  {
+    key: 'classes',
+    label: 'Manajemen Kelas',
+    description: 'Tambah kelas baru dan kelola anggota lintas peran.',
+    icon: GraduationCap
   },
   {
     key: 'schedules',
@@ -558,6 +583,20 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
   });
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
+  const [classForm, setClassForm] = useState({
+    name: '',
+    gradeLevel: '',
+    academicYear: '',
+    description: '',
+    homeroomTeacherId: ''
+  });
+  const [editingClassId, setEditingClassId] = useState<string | null>(null);
+  const [classMessage, setClassMessage] = useState<string | null>(null);
+  const [classErrorMessage, setClassErrorMessage] = useState<string | null>(null);
+  const [memberEditorClassId, setMemberEditorClassId] = useState<string | null>(null);
+  const [memberSelection, setMemberSelection] = useState<string[]>([]);
+  const [memberMessage, setMemberMessage] = useState<string | null>(null);
+  const [memberErrorMessage, setMemberErrorMessage] = useState<string | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     sentryDsn: '',
     virusTotalApiKey: '',
@@ -608,6 +647,29 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       notes: ''
     });
     setEditingScheduleId(null);
+  };
+
+  const resetClassForm = () => {
+    setClassForm({
+      name: '',
+      gradeLevel: '',
+      academicYear: '',
+      description: '',
+      homeroomTeacherId: ''
+    });
+    setEditingClassId(null);
+  };
+
+  const sanitizeOptional = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : undefined;
+  };
+
+  const closeMemberEditor = () => {
+    setMemberEditorClassId(null);
+    setMemberSelection([]);
+    setMemberMessage(null);
+    setMemberErrorMessage(null);
   };
 
   const {
@@ -672,7 +734,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     queryFn: () => fetchSchedules()
   });
 
-  const { data: classes = [], isLoading: classesLoading } = useQuery<SchoolClassSummary[]>({
+  const { data: classes = [], isLoading: classesLoading } = useQuery<SchoolClassRecord[]>({
     queryKey: ['classes', 'admin'],
     queryFn: fetchClasses
   });
@@ -785,6 +847,19 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     return [...structureEntries].sort((a, b) => a.order - b.order);
   }, [structureEntries]);
 
+  const sortedClasses = useMemo(() => {
+    return [...classes].sort((a, b) => {
+      if (a.gradeLevel !== b.gradeLevel) {
+        return a.gradeLevel - b.gradeLevel;
+      }
+      const yearCompare = a.academicYear.localeCompare(b.academicYear);
+      if (yearCompare !== 0) {
+        return yearCompare;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [classes]);
+
   const structureParentLookup = useMemo(() => {
     return structureEntries.reduce<Record<string, WawasanStructureEntry>>((accumulator, entry) => {
       accumulator[entry.id] = entry;
@@ -806,6 +881,16 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       return a.name.localeCompare(b.name);
     });
   }, [teamMembers]);
+
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      const roleCompare = a.role.localeCompare(b.role);
+      if (roleCompare !== 0) {
+        return roleCompare;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [users]);
 
   useEffect(() => {
     if (!adminSettings) {
@@ -895,6 +980,25 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     }
   }, [selectedWawasanKey]);
 
+  useEffect(() => {
+    if (!memberEditorClassId) {
+      return;
+    }
+    const activeClass = classes.find((item) => item.id === memberEditorClassId);
+    if (!activeClass) {
+      return;
+    }
+    const memberIds = activeClass.members.map((member) => member.id);
+    setMemberSelection((prev) => {
+      const prevSorted = [...prev].sort();
+      const nextSorted = [...memberIds].sort();
+      if (prevSorted.length === nextSorted.length && prevSorted.every((value, index) => value === nextSorted[index])) {
+        return prev;
+      }
+      return memberIds;
+    });
+  }, [classes, memberEditorClassId]);
+
   const uploadMutation = useMutation({
     mutationFn: (payload: FormData) => uploadDocument(payload),
     onSuccess: () => {
@@ -981,6 +1085,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     onSuccess: (saved, variables) => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'list'] });
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', variables.key] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', variables.key] });
       setWawasanMessage('Konten wawasan berhasil disimpan.');
       setWawasanErrorMessage(null);
 
@@ -1010,6 +1115,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (payload) => createHistoryTimelineEntry(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'timeline'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', TIMELINE_SECTION_KEY] });
       setTimelineMessage('Peristiwa baru ditambahkan ke timeline.');
       setTimelineErrorMessage(null);
       resetTimelineForm();
@@ -1029,6 +1135,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: ({ id, payload }) => updateHistoryTimelineEntry(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'timeline'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', TIMELINE_SECTION_KEY] });
       setTimelineMessage('Peristiwa timeline berhasil diperbarui.');
       setTimelineErrorMessage(null);
       resetTimelineForm();
@@ -1044,6 +1151,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (id) => deleteHistoryTimelineEntry(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'timeline'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', TIMELINE_SECTION_KEY] });
       setTimelineMessage('Peristiwa timeline dihapus.');
       setTimelineErrorMessage(null);
       resetTimelineForm();
@@ -1059,6 +1167,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (payload) => createHeritageValue(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'heritage'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', TIMELINE_SECTION_KEY] });
       setHeritageMessage('Nilai warisan berhasil ditambahkan.');
       setHeritageErrorMessage(null);
       resetHeritageForm();
@@ -1078,6 +1187,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: ({ id, payload }) => updateHeritageValue(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'heritage'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', TIMELINE_SECTION_KEY] });
       setHeritageMessage('Nilai warisan berhasil diperbarui.');
       setHeritageErrorMessage(null);
       resetHeritageForm();
@@ -1093,6 +1203,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (id) => deleteHeritageValue(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'heritage'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', TIMELINE_SECTION_KEY] });
       setHeritageMessage('Nilai warisan dihapus.');
       setHeritageErrorMessage(null);
       resetHeritageForm();
@@ -1108,6 +1219,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (payload) => createStructureEntry(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'structure'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', STRUCTURE_SECTION_KEY] });
       setStructureMessage('Struktur organisasi ditambahkan.');
       setStructureErrorMessage(null);
       resetStructureForm();
@@ -1127,6 +1239,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: ({ id, payload }) => updateStructureEntry(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'structure'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', STRUCTURE_SECTION_KEY] });
       setStructureMessage('Struktur organisasi diperbarui.');
       setStructureErrorMessage(null);
       resetStructureForm();
@@ -1142,6 +1255,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (id) => deleteStructureEntry(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wawasan', 'admin', 'structure'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', STRUCTURE_SECTION_KEY] });
       setStructureMessage('Struktur organisasi dihapus.');
       setStructureErrorMessage(null);
       resetStructureForm();
@@ -1157,6 +1271,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (payload) => createTeamMember(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams', 'admin', 'wawasan'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', 'our-teams'] });
       setTeamMessage('Anggota tim berhasil ditambahkan.');
       setTeamErrorMessage(null);
       resetTeamForm();
@@ -1176,6 +1291,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: ({ id, payload }) => updateTeamMember(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams', 'admin', 'wawasan'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', 'our-teams'] });
       setTeamMessage('Data anggota tim diperbarui.');
       setTeamErrorMessage(null);
       resetTeamForm();
@@ -1191,6 +1307,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (id) => deleteTeamMember(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams', 'admin', 'wawasan'] });
+      queryClient.invalidateQueries({ queryKey: ['wawasan', 'our-teams'] });
       setTeamMessage('Anggota tim dihapus.');
       setTeamErrorMessage(null);
       resetTeamForm();
@@ -1427,6 +1544,71 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     }
   });
 
+  const createClassMutation = useMutation<SchoolClassRecord, unknown, CreateClassPayload>({
+    mutationFn: (payload) => createClass(payload),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['classes', 'admin'] });
+      setClassMessage(`Kelas ${created.name} berhasil ditambahkan.`);
+      setClassErrorMessage(null);
+      resetClassForm();
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal menyimpan kelas baru.';
+      setClassErrorMessage(message);
+      setClassMessage(null);
+    }
+  });
+
+  const updateClassMutation = useMutation<SchoolClassRecord, unknown, { id: string; payload: UpdateClassPayload }>({
+    mutationFn: ({ id, payload }) => updateClass(id, payload),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['classes', 'admin'] });
+      setClassMessage(`Data kelas ${updated.name} diperbarui.`);
+      setClassErrorMessage(null);
+      resetClassForm();
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal memperbarui kelas.';
+      setClassErrorMessage(message);
+      setClassMessage(null);
+    }
+  });
+
+  const deleteClassMutation = useMutation<void, unknown, string>({
+    mutationFn: (id) => deleteClass(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['classes', 'admin'] });
+      if (editingClassId === id) {
+        resetClassForm();
+      }
+      setClassMessage('Kelas berhasil dihapus.');
+      setClassErrorMessage(null);
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal menghapus kelas.';
+      setClassErrorMessage(message);
+      setClassMessage(null);
+    }
+  });
+
+  const updateClassMembersMutation = useMutation<SchoolClassRecord, unknown, { id: string; payload: UpdateClassMembersPayload }>({
+    mutationFn: ({ id, payload }) => updateClassMembers(id, payload),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['classes', 'admin'] });
+      setMemberSelection(updated.members.map((member) => member.id));
+      setMemberMessage('Anggota kelas diperbarui.');
+      setMemberErrorMessage(null);
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal menyimpan anggota kelas.';
+      setMemberErrorMessage(message);
+      setMemberMessage(null);
+    }
+  });
+
+  const classSubmitting = createClassMutation.isPending || updateClassMutation.isPending;
+  const memberSubmitting = updateClassMembersMutation.isPending;
+
   const settingsSaveMutation = useMutation({
     mutationFn: (payload: AdminSettingsPayload) => updateAdminSettings(payload),
     onSuccess: (updated) => {
@@ -1518,6 +1700,107 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     });
     setEditingGalleryId(item.id);
     setGalleryMessage(null);
+  };
+
+  const handleClassSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setClassMessage(null);
+    setClassErrorMessage(null);
+
+    const name = classForm.name.trim();
+    const academicYear = classForm.academicYear.trim();
+    const gradeLevelValue = Number.parseInt(classForm.gradeLevel, 10);
+
+    if (!name) {
+      setClassErrorMessage('Nama kelas wajib diisi.');
+      return;
+    }
+
+    if (Number.isNaN(gradeLevelValue) || gradeLevelValue <= 0) {
+      setClassErrorMessage('Isi tingkat kelas dengan angka yang valid.');
+      return;
+    }
+
+    if (!academicYear) {
+      setClassErrorMessage('Tahun ajaran wajib diisi.');
+      return;
+    }
+
+    const description = sanitizeOptional(classForm.description);
+    const homeroomTeacherId = sanitizeOptional(classForm.homeroomTeacherId);
+
+    const payload: CreateClassPayload = {
+      name,
+      gradeLevel: gradeLevelValue,
+      academicYear,
+      description: description ?? null,
+      homeroomTeacherId: homeroomTeacherId ?? null
+    };
+
+    if (editingClassId) {
+      updateClassMutation.mutate({ id: editingClassId, payload });
+    } else {
+      createClassMutation.mutate(payload);
+    }
+  };
+
+  const handleClassEdit = (item: SchoolClassRecord) => {
+    setClassForm({
+      name: item.name,
+      gradeLevel: String(item.gradeLevel ?? ''),
+      academicYear: item.academicYear ?? '',
+      description: item.description ?? '',
+      homeroomTeacherId: item.homeroomTeacher?.id ?? ''
+    });
+    setEditingClassId(item.id);
+    setClassMessage(null);
+    setClassErrorMessage(null);
+  };
+
+  const handleClassCancel = () => {
+    resetClassForm();
+    setClassErrorMessage(null);
+  };
+
+  const handleClassDelete = (id: string) => {
+    if (!confirm('Hapus kelas ini?')) {
+      return;
+    }
+    setClassMessage(null);
+    setClassErrorMessage(null);
+    deleteClassMutation.mutate(id);
+  };
+
+  const handleOpenMemberEditor = (item: SchoolClassRecord) => {
+    setMemberEditorClassId(item.id);
+    setMemberSelection(item.members.map((member) => member.id));
+    setMemberMessage(null);
+    setMemberErrorMessage(null);
+  };
+
+  const handleMemberToggle = (userId: string) => {
+    setMemberSelection((prev) => {
+      const hasUser = prev.includes(userId);
+      if (hasUser) {
+        return prev.filter((id) => id !== userId);
+      }
+      return [...prev, userId];
+    });
+  };
+
+  const handleMembersSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!memberEditorClassId) {
+      return;
+    }
+
+    setMemberMessage(null);
+    setMemberErrorMessage(null);
+
+    updateClassMembersMutation.mutate({
+      id: memberEditorClassId,
+      payload: { memberIds: memberSelection }
+    });
   };
 
   const handleScheduleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -1839,6 +2122,9 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
   const aiVerdictMeta = aiAnalysis ? AI_VERDICT_META[aiAnalysis.verdict] : null;
   const aiConfidencePercent = aiAnalysis?.confidence != null ? Math.round(aiAnalysis.confidence * 100) : null;
   const aiHeaderEntries = aiAnalysis ? Object.entries(aiAnalysis.headers ?? {}) : [];
+  const memberEditorClass = memberEditorClassId
+    ? classes.find((item) => item.id === memberEditorClassId) ?? null
+    : null;
 
   if (!section) {
     return <Navigate to="/dashboard/admin/overview" replace />;
@@ -3488,6 +3774,359 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
           )}
 
         </section>
+      )}
+
+      {section === 'classes' && (
+        <section id="classes-section" className="grid gap-6 lg:grid-cols-[1fr,1.3fr]">
+          <div className="space-y-4 rounded-xl border border-school-border bg-white p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-school-text flex items-center gap-2">
+                  <GraduationCap size={20} />
+                  Kelola Data Kelas
+                </h2>
+                <p className="text-sm text-school-text-muted">Buat kelas baru, tetapkan wali kelas, dan catat deskripsinya.</p>
+              </div>
+              {editingClassId && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-school-accent/10 px-3 py-1 text-xs font-semibold text-school-accent">
+                  Mengedit kelas
+                </span>
+              )}
+            </div>
+
+            <form onSubmit={handleClassSubmit} className="space-y-4">
+              <label className="grid gap-1 text-sm text-school-text">
+                <span className="flex items-center gap-1">
+                  Nama Kelas
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                </span>
+                <input
+                  type="text"
+                  value={classForm.name}
+                  onChange={(event) => setClassForm((prev) => ({ ...prev, name: event.target.value }))}
+                  className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder="Contoh: XI IPA 1"
+                  required
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm text-school-text">
+                  <span className="flex items-center gap-1">
+                    Tingkat Kelas
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                  </span>
+                  <input
+                    type="number"
+                    value={classForm.gradeLevel}
+                    onChange={(event) => {
+                      const raw = event.target.value;
+                      setClassForm((prev) => ({ ...prev, gradeLevel: raw }));
+                    }}
+                    className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                    placeholder="Contoh: 11"
+                    min={1}
+                    required
+                  />
+                </label>
+                <label className="grid gap-1 text-sm text-school-text">
+                  <span className="flex items-center gap-1">
+                    Tahun Ajaran
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={classForm.academicYear}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, academicYear: event.target.value }))}
+                    className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                    placeholder="Contoh: 2024/2025"
+                    required
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-1 text-sm text-school-text">
+                <span>Deskripsi Kelas (opsional)</span>
+                <textarea
+                  value={classForm.description}
+                  onChange={(event) => setClassForm((prev) => ({ ...prev, description: event.target.value }))}
+                  className="min-h-[90px] w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder="Sorot fokus pembelajaran atau ciri khas kelas."
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-school-text">
+                <span>Wali Kelas (opsional)</span>
+                <select
+                  value={classForm.homeroomTeacherId}
+                  onChange={(event) => setClassForm((prev) => ({ ...prev, homeroomTeacherId: event.target.value }))}
+                  className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                >
+                  <option value="">Belum ditetapkan</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                {editingClassId && (
+                  <button
+                    type="button"
+                    onClick={handleClassCancel}
+                    className="inline-flex items-center gap-2 rounded-lg border border-school-border px-4 py-2 text-sm font-medium text-school-text hover:bg-school-surface"
+                    disabled={classSubmitting}
+                  >
+                    <X size={16} />
+                    Batal Edit
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-lg bg-school-accent px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-school-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={classSubmitting}
+                >
+                  {classSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {editingClassId ? 'Simpan Perubahan' : 'Tambah Kelas'}
+                </button>
+              </div>
+            </form>
+            {classMessage && <p className="text-sm text-school-text-muted">{classMessage}</p>}
+            {classErrorMessage && <p className="text-sm text-red-500">{classErrorMessage}</p>}
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-4 rounded-xl border border-school-border bg-white p-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-school-text">Daftar Kelas Terdaftar</h2>
+                  <p className="text-sm text-school-text-muted">Pantau jumlah anggota, wali kelas, dan aktivitas pembaruan.</p>
+                </div>
+                <span className="inline-flex h-8 items-center rounded-full bg-school-surface px-3 text-xs font-semibold text-school-text">
+                  {classes.length} kelas
+                </span>
+              </div>
+
+              {classesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-school-text-muted">
+                  <Loader2 size={16} className="animate-spin" /> Memuat data kelas...
+                </div>
+              ) : sortedClasses.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-school-border p-6 text-center text-sm text-school-text-muted">
+                  Belum ada kelas yang tersimpan. Tambahkan kelas baru melalui formulir di sebelah kiri.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {sortedClasses.map((item) => {
+                    const homeroomLabel = item.homeroomTeacher?.name ?? 'Belum ditetapkan';
+                    const previewMembers = item.members.slice(0, 3);
+                    const remainingMembers = Math.max(item.memberCount - previewMembers.length, 0);
+                    return (
+                      <article key={item.id} className="rounded-lg border border-school-border p-4 shadow-sm">
+                        <div className="flex flex-col gap-3 md:flex-row md:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-base font-semibold text-school-text">{item.name}</h3>
+                              <span className="rounded-full bg-school-accent/10 px-2 py-0.5 text-xs font-semibold text-school-accent">
+                                Tingkat {item.gradeLevel}
+                              </span>
+                              <span className="rounded-full bg-school-surface px-2 py-0.5 text-xs text-school-text-muted">
+                                {item.academicYear}
+                              </span>
+                            </div>
+                            <p className="text-sm text-school-text-muted">
+                              Wali kelas: <span className="font-medium text-school-text">{homeroomLabel}</span>
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-school-text-muted">
+                              <span>Anggota: {item.memberCount}</span>
+                              <span>Diperbarui: {new Date(item.updatedAt).toLocaleDateString('id-ID')}</span>
+                            </div>
+                            {item.description && (
+                              <p className="text-sm text-school-text">{item.description}</p>
+                            )}
+                            {previewMembers.length > 0 && (
+                              <div className="flex flex-wrap gap-2 text-xs text-school-text">
+                                {previewMembers.map((member) => (
+                                  <span key={member.id} className="inline-flex items-center gap-1 rounded-full bg-school-surface px-2 py-0.5">
+                                    <Users size={12} /> {member.name}
+                                  </span>
+                                ))}
+                                {remainingMembers > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-school-surface px-2 py-0.5 text-school-text-muted">
+                                    +{remainingMembers} lainnya
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2 md:items-end">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenMemberEditor(item)}
+                              className="inline-flex items-center gap-2 rounded-lg border border-school-border px-4 py-2 text-sm font-medium text-school-text hover:bg-school-surface disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={memberEditorClassId === item.id && memberSubmitting}
+                            >
+                              <Users size={16} /> Kelola Anggota
+                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleClassEdit(item)}
+                                className="inline-flex items-center gap-2 rounded-lg border border-school-border px-3 py-1.5 text-xs font-medium text-school-text hover:bg-school-surface"
+                              >
+                                <Edit size={14} /> Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleClassDelete(item.id)}
+                                className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed"
+                                disabled={deleteClassMutation.isPending}
+                              >
+                                <Trash2 size={14} /> Hapus
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {memberEditorClass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeMemberEditor} aria-hidden="true" />
+          <div className="relative z-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-school-border bg-white shadow-xl">
+            <div className="flex items-start justify-between border-b border-school-border px-6 py-4">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold text-school-text">Kelola Anggota {memberEditorClass.name}</h2>
+                <p className="text-sm text-school-text-muted">
+                  Centang pengguna yang tergabung dalam kelas ini. Perubahan disimpan setelah menekan tombol simpan.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeMemberEditor}
+                className="inline-flex items-center justify-center rounded-lg border border-school-border p-2 text-school-text hover:bg-school-surface"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleMembersSubmit} className="space-y-4 px-6 py-5">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-school-text-muted">
+                <span>Tingkat {memberEditorClass.gradeLevel}</span>
+                <span>•</span>
+                <span>Tahun ajaran {memberEditorClass.academicYear}</span>
+                {memberEditorClass.homeroomTeacher && (
+                  <>
+                    <span>•</span>
+                    <span>Wali kelas: {memberEditorClass.homeroomTeacher.name}</span>
+                  </>
+                )}
+              </div>
+
+              {memberMessage && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{memberMessage}</div>
+              )}
+              {memberErrorMessage && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{memberErrorMessage}</div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMemberSelection(sortedUsers.map((user) => user.id))}
+                  className="inline-flex items-center gap-2 rounded-lg border border-school-border px-3 py-2 text-xs font-medium text-school-text hover:bg-school-surface disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={sortedUsers.length === 0 || memberSubmitting}
+                >
+                  Pilih Semua
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMemberSelection([])}
+                  className="inline-flex items-center gap-2 rounded-lg border border-school-border px-3 py-2 text-xs font-medium text-school-text hover:bg-school-surface disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={memberSubmitting}
+                >
+                  Kosongkan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMemberSelection(memberEditorClass.members.map((member) => member.id))}
+                  className="inline-flex items-center gap-2 rounded-lg border border-school-border px-3 py-2 text-xs font-medium text-school-text hover:bg-school-surface disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={memberSubmitting}
+                >
+                  Kembalikan Pengaturan Awal
+                </button>
+              </div>
+
+              <div className="max-h-[420px] overflow-y-auto rounded-xl border border-school-border">
+                {usersLoading ? (
+                  <div className="flex items-center gap-2 px-4 py-4 text-sm text-school-text-muted">
+                    <Loader2 size={16} className="animate-spin" /> Memuat daftar pengguna...
+                  </div>
+                ) : sortedUsers.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-sm text-school-text-muted">
+                    Belum ada pengguna yang dapat ditambahkan ke kelas.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-school-border">
+                    {sortedUsers.map((user) => {
+                      const checked = memberSelection.includes(user.id);
+                      const roleLabel = USER_ROLE_LABELS[user.role] ?? user.role;
+                      return (
+                        <li key={user.id}>
+                          <label className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-school-surface">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-school-border text-school-accent focus:ring-school-accent"
+                              checked={checked}
+                              onChange={() => handleMemberToggle(user.id)}
+                              disabled={memberSubmitting}
+                            />
+                            <div className="flex flex-col">
+                              <span className="font-medium text-school-text">{user.name}</span>
+                              <span className="text-xs text-school-text-muted">{user.email}</span>
+                            </div>
+                            <span className="ml-auto inline-flex items-center rounded-full bg-school-surface px-2 py-0.5 text-xs text-school-text-muted">
+                              {roleLabel}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeMemberEditor}
+                  className="inline-flex items-center gap-2 rounded-lg border border-school-border px-4 py-2 text-sm font-medium text-school-text hover:bg-school-surface"
+                  disabled={memberSubmitting}
+                >
+                  <X size={16} />
+                  Tutup
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-lg bg-school-accent px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-school-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={memberSubmitting}
+                >
+                  {memberSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {section === 'documents' && (
