@@ -37,6 +37,7 @@ const navigationByRole: Record<UserRole, NavItem[]> = {
     { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/admin/overview' },
     { label: 'Landing Content', icon: Home, to: '/dashboard/admin/landing' },
     { label: 'Wawasan Content', icon: BookOpen, to: '/dashboard/admin/wawasan' },
+  { label: 'Extracurriculars', icon: Users, to: '/dashboard/admin/extracurriculars' },
   { label: 'Class Management', icon: GraduationCap, to: '/dashboard/admin/classes' },
     { label: 'User Management', icon: Users, to: '/dashboard/admin/users' },
     { label: 'Documents', icon: FileText, to: '/dashboard/admin/documents' },

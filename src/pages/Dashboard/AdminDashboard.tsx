@@ -3,7 +3,12 @@ import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createAnnouncement, deleteAnnouncement, fetchAnnouncements, updateAnnouncement } from '@/api/announcements';
 import { fetchArticles } from '@/api/articles';
-import { fetchExtracurriculars } from '@/api/extracurriculars';
+import {
+  createExtracurricular,
+  deleteExtracurricular,
+  fetchExtracurriculars,
+  updateExtracurricular
+} from '@/api/extracurriculars';
 import { fetchDocuments, uploadDocument, deleteDocument, downloadDocumentFile } from '@/api/documents';
 import { fetchValidatorHistory, submitDomainCheck } from '@/api/validator';
 import { createSchedule, deleteSchedule, fetchSchedules, updateSchedule } from '@/api/schedules';
@@ -42,6 +47,9 @@ import type {
   GalleryPayload,
   ScheduleItem,
   SchedulePayload,
+  Extracurricular,
+  CreateExtracurricularPayload,
+  UpdateExtracurricularPayload,
   ValidatorHistory,
   BasicUserSummary,
   ClassMemberSummary,
@@ -254,6 +262,7 @@ type AdminSection =
   | 'overview'
   | 'landing'
   | 'wawasan'
+  | 'extracurriculars'
   | 'classes'
   | 'documents'
   | 'validator'
@@ -274,6 +283,10 @@ const ADMIN_SECTION_META: Record<AdminSection, { title: string; description: str
   wawasan: {
     title: 'Kelola Konten Wawasan',
     description: 'Atur Sejarah, Visi Misi, Struktur Organisasi, dan konten tim agar selalu terbaru.'
+  },
+  extracurriculars: {
+    title: 'Manajemen Ekstrakurikuler',
+    description: 'Tambah kegiatan, atur jadwal, dan sorot pencapaian ekstrakurikuler.'
   },
   classes: {
     title: 'Manajemen Kelas',
@@ -317,6 +330,12 @@ const ADMIN_QUICK_LINKS: Array<{ key: AdminSection; label: string; description: 
     label: 'Konten Wawasan',
     description: 'Perbarui Sejarah, Visi Misi, struktur organisasi, dan tim sekolah.',
     icon: BookOpen
+  },
+  {
+    key: 'extracurriculars',
+    label: 'Ekstrakurikuler',
+    description: 'Kelola kegiatan dan pencapaian ekstrakurikuler siswa.',
+    icon: Users
   },
   {
     key: 'documents',
@@ -571,6 +590,20 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
   const [editingGalleryId, setEditingGalleryId] = useState<string | null>(null);
   const [galleryMessage, setGalleryMessage] = useState<string | null>(null);
 
+  const [extracurricularForm, setExtracurricularForm] = useState({
+    name: '',
+    description: '',
+    category: '',
+    schedule: '',
+    mentorName: '',
+    achievements: '',
+    coverImage: '',
+    isNew: false
+  });
+  const [editingExtracurricularId, setEditingExtracurricularId] = useState<string | null>(null);
+  const [extracurricularMessage, setExtracurricularMessage] = useState<string | null>(null);
+  const [extracurricularErrorMessage, setExtracurricularErrorMessage] = useState<string | null>(null);
+
   const [scheduleForm, setScheduleForm] = useState({
     classId: '',
     subjectId: '',
@@ -633,6 +666,20 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       publishedAt: toDateTimeLocalValue(undefined)
     });
     setEditingGalleryId(null);
+  };
+
+  const resetExtracurricularForm = () => {
+    setExtracurricularForm({
+      name: '',
+      description: '',
+      category: '',
+      schedule: '',
+      mentorName: '',
+      achievements: '',
+      coverImage: '',
+      isNew: false
+    });
+    setEditingExtracurricularId(null);
   };
 
   const resetScheduleForm = () => {
@@ -842,6 +889,10 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
   const sortedHeritageValues = useMemo(() => {
     return [...heritageValues].sort((a, b) => a.order - b.order);
   }, [heritageValues]);
+
+  const sortedExtracurriculars = useMemo(() => {
+    return [...extracurriculars].sort((a, b) => a.name.localeCompare(b.name));
+  }, [extracurriculars]);
 
   const sortedStructureEntries = useMemo(() => {
     return [...structureEntries].sort((a, b) => a.order - b.order);
@@ -1438,6 +1489,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       id ? updateAnnouncement(id, payload) : createAnnouncement(payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['announcements', 'highlight'] });
       setAnnouncementMessage(
         variables.id ? 'Pengumuman berhasil diperbarui.' : 'Pengumuman baru berhasil ditambahkan.'
       );
@@ -1452,6 +1504,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (id: string) => deleteAnnouncement(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['announcements', 'highlight'] });
       if (editingAnnouncementId === id) {
         resetAnnouncementForm();
       }
@@ -1467,6 +1520,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       id ? updateFaqItem(id, payload) : createFaqItem(payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['faq', 'admin'] });
+      queryClient.invalidateQueries({ queryKey: ['faq'] });
       setFaqMessage(variables.id ? 'FAQ berhasil diperbarui.' : 'FAQ baru berhasil ditambahkan.');
       resetFaqForm();
     },
@@ -1479,6 +1533,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (id: string) => deleteFaqItem(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['faq', 'admin'] });
+      queryClient.invalidateQueries({ queryKey: ['faq'] });
       if (editingFaqId === id) {
         resetFaqForm();
       }
@@ -1494,6 +1549,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       id ? updateGalleryItem(id, payload) : createGalleryItem(payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['gallery', 'admin'] });
+      queryClient.invalidateQueries({ queryKey: ['gallery'] });
       setGalleryMessage(variables.id ? 'Galeri berhasil diperbarui.' : 'Galeri baru berhasil ditambahkan.');
       resetGalleryForm();
     },
@@ -1506,6 +1562,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     mutationFn: (id: string) => deleteGalleryItem(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['gallery', 'admin'] });
+      queryClient.invalidateQueries({ queryKey: ['gallery'] });
       if (editingGalleryId === id) {
         resetGalleryForm();
       }
@@ -1513,6 +1570,53 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     },
     onError: () => {
       setGalleryMessage('Gagal menghapus item galeri.');
+    }
+  });
+
+  const createExtracurricularMutation = useMutation<Extracurricular, unknown, CreateExtracurricularPayload>({
+    mutationFn: (payload) => createExtracurricular(payload),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['extracurriculars'] });
+      setExtracurricularMessage(`Ekstrakurikuler ${created.name} berhasil ditambahkan.`);
+      setExtracurricularErrorMessage(null);
+      resetExtracurricularForm();
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal menambahkan ekstrakurikuler.';
+      setExtracurricularErrorMessage(message);
+      setExtracurricularMessage(null);
+    }
+  });
+
+  const updateExtracurricularMutation = useMutation<Extracurricular, unknown, { id: string; payload: UpdateExtracurricularPayload }>({
+    mutationFn: ({ id, payload }) => updateExtracurricular(id, payload),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['extracurriculars'] });
+      setExtracurricularMessage(`Data ${updated.name} diperbarui.`);
+      setExtracurricularErrorMessage(null);
+      resetExtracurricularForm();
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal memperbarui ekstrakurikuler.';
+      setExtracurricularErrorMessage(message);
+      setExtracurricularMessage(null);
+    }
+  });
+
+  const deleteExtracurricularMutation = useMutation<void, unknown, string>({
+    mutationFn: (id) => deleteExtracurricular(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['extracurriculars'] });
+      setExtracurricularMessage('Ekstrakurikuler berhasil dihapus.');
+      setExtracurricularErrorMessage(null);
+      if (editingExtracurricularId === id) {
+        resetExtracurricularForm();
+      }
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal menghapus ekstrakurikuler.';
+      setExtracurricularErrorMessage(message);
+      setExtracurricularMessage(null);
     }
   });
 
@@ -1606,6 +1710,8 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     }
   });
 
+  const extracurricularSubmitting =
+    createExtracurricularMutation.isPending || updateExtracurricularMutation.isPending;
   const classSubmitting = createClassMutation.isPending || updateClassMutation.isPending;
   const memberSubmitting = updateClassMembersMutation.isPending;
 
@@ -1700,6 +1806,75 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     });
     setEditingGalleryId(item.id);
     setGalleryMessage(null);
+  };
+
+  const handleExtracurricularSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setExtracurricularMessage(null);
+    setExtracurricularErrorMessage(null);
+
+    const name = extracurricularForm.name.trim();
+    const description = extracurricularForm.description.trim();
+    const category = extracurricularForm.category.trim();
+    const schedule = extracurricularForm.schedule.trim();
+  const mentorName = sanitizeOptional(extracurricularForm.mentorName);
+
+    if (!name || !description || !category || !schedule) {
+      setExtracurricularErrorMessage('Nama, deskripsi, kategori, dan jadwal wajib diisi.');
+      return;
+    }
+
+    if (!mentorName) {
+      setExtracurricularErrorMessage('Nama pembina ekstrakurikuler wajib diisi.');
+      return;
+    }
+
+    const achievements = extracurricularForm.achievements
+      .split(/\r?\n|,/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const payload: CreateExtracurricularPayload = {
+      name,
+      description,
+      category,
+      schedule,
+      mentorName,
+      achievements: achievements.length ? achievements : undefined,
+      coverImage: sanitizeOptional(extracurricularForm.coverImage),
+      isNew: extracurricularForm.isNew
+    };
+
+    if (editingExtracurricularId) {
+      updateExtracurricularMutation.mutate({ id: editingExtracurricularId, payload });
+    } else {
+      createExtracurricularMutation.mutate(payload);
+    }
+  };
+
+  const handleExtracurricularEdit = (item: Extracurricular) => {
+    setExtracurricularForm({
+      name: item.name,
+      description: item.description,
+      category: item.category,
+      schedule: item.schedule,
+      mentorName: item.mentor,
+      achievements: (item.achievements ?? []).join('\n'),
+      coverImage: item.coverImage ?? '',
+      isNew: Boolean(item.isNew)
+    });
+    setEditingExtracurricularId(item.id);
+    setExtracurricularMessage(null);
+    setExtracurricularErrorMessage(null);
+  };
+
+  const handleExtracurricularDelete = (id: string) => {
+    if (!confirm('Hapus ekstrakurikuler ini?')) {
+      return;
+    }
+    setExtracurricularMessage(null);
+    setExtracurricularErrorMessage(null);
+    deleteExtracurricularMutation.mutate(id);
   };
 
   const handleClassSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -3773,6 +3948,233 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
             </div>
           )}
 
+        </section>
+      )}
+
+      {section === 'extracurriculars' && (
+        <section id="extracurriculars-section" className="grid gap-6 lg:grid-cols-[1fr,1.2fr]">
+          <div className="space-y-4 rounded-xl border border-school-border bg-white p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-school-text flex items-center gap-2">
+                  <Users size={20} />
+                  Kelola Ekstrakurikuler
+                </h2>
+                <p className="text-sm text-school-text-muted">Isi informasi kegiatan dan soroti pencapaian unggulan.</p>
+              </div>
+              {editingExtracurricularId && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-school-accent/10 px-3 py-1 text-xs font-semibold text-school-accent">
+                  Mengedit kegiatan
+                </span>
+              )}
+            </div>
+
+            <form onSubmit={handleExtracurricularSubmit} className="grid gap-4">
+              <label className="grid gap-1 text-sm text-school-text">
+                <span className="flex items-center gap-1">
+                  Nama Ekstrakurikuler
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                </span>
+                <input
+                  type="text"
+                  value={extracurricularForm.name}
+                  onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, name: event.target.value }))}
+                  className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder="Contoh: Paduan Suara"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-school-text">
+                <span className="flex items-center gap-1">
+                  Kategori
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                </span>
+                <input
+                  type="text"
+                  value={extracurricularForm.category}
+                  onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, category: event.target.value }))}
+                  className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder="Contoh: Seni"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-school-text">
+                <span className="flex items-center gap-1">
+                  Jadwal Kegiatan
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                </span>
+                <input
+                  type="text"
+                  value={extracurricularForm.schedule}
+                  onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, schedule: event.target.value }))}
+                  className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder="Contoh: Senin & Rabu, 15.00–17.00"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-school-text">
+                <span className="flex items-center gap-1">
+                  Pembina / Mentor
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                </span>
+                <input
+                  type="text"
+                  value={extracurricularForm.mentorName}
+                  onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, mentorName: event.target.value }))}
+                  className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder="Nama pembina kegiatan"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-school-text">
+                <span className="flex items-center gap-1">
+                  Deskripsi Kegiatan
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Required</span>
+                </span>
+                <textarea
+                  value={extracurricularForm.description}
+                  onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, description: event.target.value }))}
+                  className="min-h-[120px] w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder="Gambarkan kegiatan, tujuan, dan keunggulan program."
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-school-text">
+                <span>Prestasi (pisahkan dengan baris baru atau koma)</span>
+                <textarea
+                  value={extracurricularForm.achievements}
+                  onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, achievements: event.target.value }))}
+                  className="min-h-[100px] w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                  placeholder={"Juara 1 Lomba Paduan Suara 2024\nPenampilan Pembukaan Natal Sekolah"}
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex items-center gap-3 text-sm text-school-text">
+                  <input
+                    type="checkbox"
+                    checked={extracurricularForm.isNew}
+                    onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, isNew: event.target.checked }))}
+                    className="h-4 w-4 rounded border-school-border text-school-accent focus:ring-school-accent"
+                  />
+                  <span>Tandai sebagai kegiatan baru</span>
+                </label>
+                <label className="grid gap-1 text-sm text-school-text">
+                  <span>Cover Image (URL opsional)</span>
+                  <input
+                    type="url"
+                    value={extracurricularForm.coverImage}
+                    onChange={(event) => setExtracurricularForm((prev) => ({ ...prev, coverImage: event.target.value }))}
+                    className="w-full rounded-lg border border-school-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-school-accent"
+                    placeholder="https://..."
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {editingExtracurricularId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetExtracurricularForm();
+                      setExtracurricularMessage(null);
+                      setExtracurricularErrorMessage(null);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-school-border px-4 py-2 text-sm font-medium text-school-text hover:bg-school-surface"
+                    disabled={extracurricularSubmitting}
+                  >
+                    <X size={16} />
+                    Batal Edit
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-lg bg-school-accent px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-school-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={extracurricularSubmitting}
+                >
+                  {extracurricularSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {editingExtracurricularId ? 'Simpan Perubahan' : 'Tambah Ekstrakurikuler'}
+                </button>
+              </div>
+            </form>
+
+            {extracurricularMessage && <p className="text-sm text-school-text-muted">{extracurricularMessage}</p>}
+            {extracurricularErrorMessage && <p className="text-sm text-red-500">{extracurricularErrorMessage}</p>}
+          </div>
+
+          <div className="space-y-4 rounded-xl border border-school-border bg-white p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-school-text">Daftar Ekstrakurikuler</h2>
+                <p className="text-sm text-school-text-muted">Sorot informasi terbaru untuk menarik minat siswa.</p>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-school-surface px-3 py-1 text-xs font-semibold text-school-text">
+                {extracurriculars.length} kegiatan
+              </span>
+            </div>
+
+            {extracurriculars.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-school-border p-6 text-center text-sm text-school-text-muted">
+                Belum ada data ekstrakurikuler. Tambahkan kegiatan pada formulir di samping.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedExtracurriculars.map((item) => (
+                  <article key={item.id} className="rounded-lg border border-school-border p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 md:flex-row md:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-school-text">{item.name}</h3>
+                          <span className="rounded-full bg-school-accent/10 px-2 py-0.5 text-xs font-semibold text-school-accent">
+                            {item.category}
+                          </span>
+                          {item.isNew && (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                              Baru
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-school-text-muted">Jadwal: {item.schedule}</p>
+                        <p className="text-sm text-school-text-muted">Pembina: {item.mentor}</p>
+                        <p className="text-sm text-school-text whitespace-pre-line">{item.description}</p>
+                        {item.achievements && item.achievements.length > 0 && (
+                          <div className="flex flex-wrap gap-2 text-xs text-school-text">
+                            {item.achievements.map((achievement) => (
+                              <span key={achievement} className="rounded-full bg-school-surface px-2 py-0.5">
+                                {achievement}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2 md:items-end">
+                        <button
+                          type="button"
+                          onClick={() => handleExtracurricularEdit(item)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-school-border px-3 py-1.5 text-xs font-medium text-school-text hover:bg-school-surface"
+                        >
+                          <Edit size={14} /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExtracurricularDelete(item.id)}
+                          className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed"
+                          disabled={deleteExtracurricularMutation.isPending}
+                        >
+                          <Trash2 size={14} /> Hapus
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       )}
 

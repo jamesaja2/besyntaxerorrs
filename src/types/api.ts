@@ -25,8 +25,24 @@ export interface Extracurricular {
   updatedAt?: string;
 }
 
+export interface CreateExtracurricularPayload {
+  name: string;
+  description: string;
+  category: string;
+  schedule: string;
+  mentorName?: string;
+  mentor?: string;
+  mentorId?: string;
+  achievements?: string[];
+  isNew?: boolean;
+  coverImage?: string;
+}
+
+export interface UpdateExtracurricularPayload extends CreateExtracurricularPayload {}
+
 export interface GalleryItem {
   id: string;
+  slug: string;
   title: string;
   description: string;
   imageUrl: string;

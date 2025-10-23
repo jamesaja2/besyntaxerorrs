@@ -7,6 +7,7 @@ interface SEOProps {
   image?: string;
   url?: string;
   type?: string;
+  structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
 export function SEO({
@@ -15,9 +16,15 @@ export function SEO({
   keywords = "SMA Katolik, St. Louis 1 Surabaya, sekolah Vinsensian, pendidikan Katolik, SMA terbaik Surabaya, ekstrakurikuler, PCPDB",
   image = "https://smakstlouis1sby.sch.id/storage/2019/08/Logo-512-01.png",
   url = "https://smakstlouis1sby.sch.id",
-  type = "website"
+  type = "website",
+  structuredData
 }: SEOProps) {
   const fullTitle = title.includes("SMA Katolik St. Louis 1") ? title : `${title} | SMA Katolik St. Louis 1 Surabaya`;
+  const structuredDataList = Array.isArray(structuredData)
+    ? structuredData
+    : structuredData
+    ? [structuredData]
+    : [];
 
   return (
     <Helmet>
@@ -72,6 +79,11 @@ export function SEO({
           ]
         })}
       </script>
+      {structuredDataList.map((data, index) => (
+        <script key={index} type="application/ld+json">
+          {JSON.stringify(data)}
+        </script>
+      ))}
     </Helmet>
   );
 }

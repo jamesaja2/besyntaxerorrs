@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Home } from '@/pages/Home';
 import { Ekstrakulikuler } from '@/pages/Ekstrakulikuler';
 import { Galeri } from '@/pages/Galeri';
-import { ArticleDetail } from '@/pages/ArticleDetail';
+import { GalleryDetail } from '@/pages/GalleryDetail';
 import { WawasanIndex } from '@/pages/Wawasan/Index';
 import { Sejarah } from '@/pages/Wawasan/Sejarah';
 import { VisiMisi } from '@/pages/Wawasan/VisiMisi';
@@ -35,7 +35,7 @@ export function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/ekstrakulikuler" element={<Ekstrakulikuler />} />
       <Route path="/galeri" element={<Galeri />} />
-  <Route path="/galeri/:slug" element={<ArticleDetail />} />
+      <Route path="/galeri/:slug" element={<GalleryDetail />} />
       <Route path="/wawasan" element={<WawasanIndex />} />
       <Route path="/wawasan/sejarah" element={<Sejarah />} />
       <Route path="/wawasan/visi-misi" element={<VisiMisi />} />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Pin, Search, Filter } from 'lucide-react';
+import { Calendar, Pin, Search, Filter, Share2, Copy, Link2, MessageCircle, Mail } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { SEO } from '@/components/SEO';
 import { Section, SectionHeader, SectionTitle, SectionDescription } from '@/components/sections/Section';
@@ -9,10 +9,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { announcements as fallbackAnnouncements } from '@/data/announcements';
 import { fetchAnnouncements } from '@/api/announcements';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { buildCanonicalUrl } from '@/lib/utils';
+import type { Announcement } from '@/types/api';
+
+type ShareableAnnouncement = Pick<Announcement, 'id' | 'title' | 'summary' | 'category'> & { content?: string };
 
 export function Pengumuman() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [shareData, setShareData] = useState<{ id: string; title: string; summary: string; url: string; category: string } | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const {
     data: remoteAnnouncements,
@@ -54,6 +61,52 @@ export function Pengumuman() {
     });
   };
 
+  const handleShareClick = async (announcement: ShareableAnnouncement) => {
+    const shareUrl = buildCanonicalUrl(`/pengumuman#${announcement.id}`);
+    const payload = {
+      id: announcement.id,
+      title: announcement.title,
+      summary: announcement.summary,
+      url: shareUrl,
+      category: announcement.category
+    };
+
+    const shareParams = {
+      title: `Pengumuman: ${payload.title}`,
+      text: `📢 [${payload.category}] ${payload.title}\n\n${payload.summary}`,
+      url: payload.url
+    };
+
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      const canShare = typeof navigator.canShare === 'function' ? navigator.canShare(shareParams) : true;
+      if (canShare) {
+      try {
+          await navigator.share(shareParams);
+          return;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            return;
+          }
+        }
+      }
+    }
+
+    setShareData(payload);
+    setCopySuccess(false);
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareData) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareData.url);
+      setCopySuccess(true);
+    } catch {
+      setCopySuccess(false);
+    }
+  };
+
   const categoryColors: Record<string, string> = {
     "Akademik": "bg-brand-blueLight/15 text-brand-bluePrimary border-brand-blueLight/30",
     "Kegiatan": "bg-brand-greenAccent/15 text-brand-greenAccent border-brand-greenAccent/30",
@@ -73,6 +126,14 @@ export function Pengumuman() {
       },
     }),
   };
+
+  const shareMessage = shareData
+    ? `📢 [${shareData.category}] ${shareData.title}\n\n${shareData.summary}\n\nSelengkapnya: ${shareData.url}`
+    : '';
+  const whatsappUrl = shareData ? `https://wa.me/?text=${encodeURIComponent(shareMessage)}` : '#';
+  const emailUrl = shareData
+    ? `mailto:?subject=${encodeURIComponent(`Pengumuman: ${shareData.title}`)}&body=${encodeURIComponent(shareMessage)}`
+    : '#';
 
   if (isLoading) {
     return (
@@ -240,7 +301,13 @@ export function Pengumuman() {
                           <span className="text-xs text-school-text-muted">
                             ID: {announcement.id}
                           </span>
-                          <Button variant="ghost" size="sm" className="text-school-accent hover:text-school-accent-dark">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-school-accent hover:text-school-accent-dark"
+                            onClick={() => handleShareClick(announcement)}
+                          >
+                            <Share2 className="w-4 h-4 mr-2" />
                             Bagikan
                           </Button>
                         </div>
@@ -298,6 +365,69 @@ export function Pengumuman() {
           </motion.div>
         </Section>
       </div>
+
+      <Dialog
+        open={Boolean(shareData)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShareData(null);
+            setCopySuccess(false);
+          }
+        }}
+      >
+        <DialogContent className="bg-school-secondary/95 border border-school-accent/20 text-school-text">
+          <DialogHeader>
+            <DialogTitle>Bagikan Pengumuman</DialogTitle>
+            <DialogDescription className="text-school-text-muted">
+              Sebarkan informasi ini melalui tautan atau media favorit Anda.
+            </DialogDescription>
+          </DialogHeader>
+
+          {shareData && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-school-accent/20 bg-school-primary/10 p-4">
+                <p className="text-sm font-semibold text-school-text mb-1">Tautan Pengumuman</p>
+                <p className="text-sm break-all text-school-text-muted">{shareData.url}</p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button onClick={handleCopyLink} className="flex-1 gap-2">
+                  <Copy className="w-4 h-4" />
+                  {copySuccess ? 'Tautan Tersalin' : 'Salin Tautan'}
+                </Button>
+                <Button asChild variant="outline" className="flex-1 gap-2">
+                  <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp
+                  </a>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button asChild variant="ghost" className="gap-2 justify-start border border-school-accent/20">
+                  <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`} target="_blank" rel="noreferrer">
+                    <Share2 className="w-4 h-4" />
+                    Facebook
+                  </a>
+                </Button>
+                <Button asChild variant="ghost" className="gap-2 justify-start border border-school-accent/20">
+                  <a href={emailUrl}>
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </a>
+                </Button>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setShareData(null); setCopySuccess(false); }} className="gap-2">
+                  <Link2 className="w-4 h-4" />
+                  Tutup
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

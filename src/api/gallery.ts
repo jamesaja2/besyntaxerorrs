@@ -6,6 +6,11 @@ export async function fetchGallery() {
   return response.data;
 }
 
+export async function fetchGalleryItem(id: string) {
+  const response = await api.get<GalleryItem>(`/gallery/${id}`);
+  return response.data;
+}
+
 export async function createGalleryItem(payload: GalleryPayload) {
   const response = await api.post<GalleryItem>('/gallery', sanitizeGalleryPayload(payload));
   return response.data;

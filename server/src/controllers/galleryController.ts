@@ -5,6 +5,37 @@ import { prisma } from '../lib/prisma.js';
 
 type GalleryWithTags = Prisma.GalleryItemGetPayload<{ include: { tags: true } }>;
 
+function slugify(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+function buildGallerySlug(title: string, id: string) {
+  const safeTitle = slugify(title) || 'galeri';
+  const cleanId = id.replace(/[^a-z0-9]/gi, '');
+  return cleanId ? `${safeTitle}-${cleanId}` : safeTitle;
+}
+
+function decodeGalleryId(slugOrId: string) {
+  try {
+    const maybeId = slugOrId.split('-').pop() ?? slugOrId;
+    if (/^[a-z0-9]{10,}$/i.test(maybeId)) {
+      return maybeId.toLowerCase();
+    }
+    const decoded = Buffer.from(maybeId, 'base64url').toString('utf8');
+    if (/^[a-z0-9]{10,}$/i.test(decoded)) {
+      return decoded.toLowerCase();
+    }
+  } catch {
+  }
+  return slugOrId;
+}
+
 const gallerySchema = z.object({
   title: z.string().min(3),
   description: z.string().min(10),
@@ -26,6 +57,7 @@ function parseDate(input: string | Date): Date {
 function serializeGalleryItem(item: GalleryWithTags) {
   return {
     ...item,
+    slug: buildGallerySlug(item.title, item.id),
     tags: item.tags.map((tag) => tag.value),
     publishedAt: item.publishedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
@@ -40,6 +72,30 @@ export async function getGallery(_req: Request, res: Response) {
   });
 
   return res.json(items.map((item) => serializeGalleryItem(item)));
+}
+
+export async function getGalleryItem(req: Request, res: Response) {
+  const identifier = req.params.slug;
+  const id = decodeGalleryId(identifier);
+
+  let item = await prisma.galleryItem.findUnique({
+    where: { id },
+    include: { tags: true }
+  });
+
+  if (!item) {
+    const normalizedSlug = slugify(identifier);
+    const candidates = await prisma.galleryItem.findMany({
+      include: { tags: true }
+    });
+    item = candidates.find((entry) => slugify(entry.title) === normalizedSlug) ?? null;
+  }
+
+  if (!item) {
+    return res.status(404).json({ message: 'Galeri tidak ditemukan' });
+  }
+
+  return res.json(serializeGalleryItem(item));
 }
 
 export async function createGalleryItem(req: Request, res: Response) {

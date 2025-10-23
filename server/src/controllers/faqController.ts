@@ -4,9 +4,9 @@ import type { FAQItem } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 const faqSchema = z.object({
-  question: z.string().min(10),
-  answer: z.string().min(10),
-  category: z.string().min(3),
+  question: z.string().min(3),
+  answer: z.string().min(3),
+  category: z.string().min(2),
   order: z.number().int().nonnegative().optional()
 });
 
