@@ -1,4 +1,7 @@
+/// <reference types="node" />
+
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,6 +28,8 @@ async function loadJson<T = JsonRecord[]>(filename: string, fallback: T): Promis
 
 async function clearDatabase() {
   await prisma.documentVerificationLog.deleteMany();
+  await prisma.documentShareToken.deleteMany();
+  await prisma.documentAudience.deleteMany();
   await prisma.documentRecord.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.validatorHistory.deleteMany();
@@ -49,6 +54,7 @@ async function clearDatabase() {
   await prisma.fAQItem.deleteMany();
   await prisma.galleryItem.deleteMany();
   await prisma.subject.deleteMany();
+  await prisma.userClassMembership.deleteMany();
   await prisma.schoolClass.deleteMany();
   await prisma.user.deleteMany();
 }
@@ -76,7 +82,8 @@ async function main() {
     gallerySeed,
     wawasanSeed,
     teamSeed,
-    pcpdbSeed
+    pcpdbSeed,
+    validatorHistorySeed
   ] = await Promise.all([
     loadJson<JsonRecord[]>('users.json', []),
     loadJson<JsonRecord[]>('announcements.json', []),
@@ -86,7 +93,8 @@ async function main() {
     loadJson<JsonRecord[]>('gallery.json', []),
     loadJson<JsonRecord[]>('wawasan.json', []),
     loadJson<JsonRecord[]>('teams.json', []),
-    loadJson<JsonRecord[]>('pcpdb.json', [])
+    loadJson<JsonRecord[]>('pcpdb.json', []),
+    loadJson<JsonRecord[]>('validator-history.json', [])
   ]);
 
   await clearDatabase();
@@ -168,25 +176,60 @@ async function main() {
   const subjectMap = new Map<string, string>(subjects.map((item) => [item.id, item.id]));
 
   const userMap = new Map<string, string>();
+  const membershipSeeds: Array<{ userId: string; classId: string; role?: string }> = [];
+  const defaultClassId = classMap.get('class-xii-mipa-1');
 
   for (const user of userSeed) {
+    const email = typeof user.email === 'string' ? user.email.toLowerCase() : null;
+    if (!email) {
+      throw new Error(`User seed entry ${user.id ?? '<unknown>'} is missing an email.`);
+    }
     const created = await prisma.user.create({
       data: {
         id: user.id,
         name: user.name,
-  email: user.email.toLowerCase(),
+        email,
         passwordHash: user.passwordHash,
         role: user.role ?? 'student',
         status: user.status ?? 'active',
         phone: user.phone ?? null,
         avatarUrl: user.avatarUrl ?? null,
-        classId: user.role === 'student' ? classMap.get('class-xii-mipa-1') ?? null : null,
         lastLogin: asDate(user.lastLogin) ?? null,
         createdAt: asDate(user.createdAt) ?? now,
         updatedAt: asDate(user.updatedAt) ?? now
       }
     });
     userMap.set(created.id, created.id);
+
+    const seededClassIds = Array.isArray(user.classIds) ? (user.classIds as string[]) : [];
+    if (seededClassIds.length > 0) {
+      const seen = new Set<string>();
+      for (const rawClassId of seededClassIds) {
+        const trimmed = typeof rawClassId === 'string' ? rawClassId.trim() : '';
+        if (!trimmed || seen.has(trimmed)) {
+          continue;
+        }
+        seen.add(trimmed);
+        const resolvedClassId = classMap.get(trimmed) ?? null;
+        if (resolvedClassId) {
+          membershipSeeds.push({ userId: created.id, classId: resolvedClassId, role: user.role });
+        }
+      }
+    } else if (user.role === 'student' && defaultClassId) {
+      membershipSeeds.push({ userId: created.id, classId: defaultClassId, role: 'student' });
+    } else if (user.role === 'teacher' && defaultClassId) {
+      membershipSeeds.push({ userId: created.id, classId: defaultClassId, role: 'teacher' });
+    }
+  }
+
+  for (const membership of membershipSeeds) {
+    await prisma.userClassMembership.create({
+      data: {
+        userId: membership.userId,
+        classId: membership.classId,
+        role: membership.role ?? null
+      }
+    });
   }
 
   const teacherId = userMap.get('user-teacher-1');
@@ -211,6 +254,47 @@ async function main() {
         updatedAt: now
       }
     });
+  }
+
+  if (validatorHistorySeed.length > 0) {
+    const defaultCreatorId = teacherId ?? null;
+    for (const entry of validatorHistorySeed) {
+      const scannedAt = asDate(entry.scannedAt) ?? asDate(entry.createdAt) ?? now;
+      const createdAt = asDate(entry.createdAt) ?? scannedAt ?? now;
+      const updatedAt = asDate(entry.updatedAt) ?? createdAt;
+
+      let categoriesJson: string | null = null;
+      if (typeof entry.categoriesJson === 'string') {
+        categoriesJson = entry.categoriesJson;
+      } else if (entry.categories && typeof entry.categories === 'object') {
+        try {
+          categoriesJson = JSON.stringify(entry.categories);
+        } catch {
+          categoriesJson = null;
+        }
+      }
+
+      const data: Prisma.ValidatorHistoryUncheckedCreateInput = {
+        url: entry.url,
+        normalizedUrl: entry.normalizedUrl ?? entry.url,
+        verdict: entry.verdict ?? 'undetected',
+        maliciousCount: Number.isFinite(Number(entry.maliciousCount)) ? Number(entry.maliciousCount) : 0,
+        suspiciousCount: Number.isFinite(Number(entry.suspiciousCount)) ? Number(entry.suspiciousCount) : 0,
+        undetectedCount: Number.isFinite(Number(entry.undetectedCount)) ? Number(entry.undetectedCount) : 0,
+        categoriesJson,
+        provider: entry.provider ?? 'virustotal',
+        scannedAt: scannedAt ?? now,
+        createdById: typeof entry.createdById === 'string' ? entry.createdById : defaultCreatorId,
+        createdAt,
+        updatedAt
+      };
+
+      if (typeof entry.id === 'string' && entry.id.trim() !== '') {
+        data.id = entry.id;
+      }
+
+      await prisma.validatorHistory.create({ data });
+    }
   }
 
   if (teacherId && studentId) {
