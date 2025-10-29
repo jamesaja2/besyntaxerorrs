@@ -1,4 +1,4 @@
-import logo from '@/public/images/logo.png';
+import logo from '@/public/images/logolomba.webp';
 
 export function FloatingBrandSlot() {
   return (

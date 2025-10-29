@@ -5,6 +5,7 @@ import { Menu, Bell, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { schoolInfo } from '@/data/school';
+import brandLogo from '@/public/images/logo.webp';
 
 const navItems = [
   { name: 'Beranda', href: '/' },
@@ -57,7 +58,7 @@ export function Navbar() {
             >
               <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
                 <img 
-                  src="https://smakstlouis1sby.sch.id/storage/2019/08/Logo-512-01.png"
+                  src={brandLogo}
                   alt="SMA St. Louis 1 Logo"
                   loading="eager"
                   decoding="async"
