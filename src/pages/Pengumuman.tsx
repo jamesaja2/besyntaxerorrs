@@ -238,17 +238,17 @@ export function Pengumuman() {
                   animate="visible"
                   id={announcement.id}
                 >
-                  <Card className={`bg-school-secondary/50 border-school-accent/20 card-hover ${
+                  <Card className={`bg-school-secondary/50 border-school-accent/20 card-hover overflow-hidden ${
                     announcement.pinned ? 'ring-2 ring-school-accent/30' : ''
                   }`}>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       {/* Header */}
-                      <div className="flex items-start justify-between mb-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                         <div className="flex items-center text-school-text-muted text-sm">
                           <Calendar className="w-4 h-4 mr-2" />
                           {formatDate(announcement.date)}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 sm:justify-end">
                           {announcement.pinned && (
                             <div className="flex items-center text-school-accent">
                               <Pin className="w-4 h-4 mr-1" />
@@ -268,31 +268,37 @@ export function Pengumuman() {
                       </div>
 
                       {/* Title */}
-                      <h3 className="text-2xl font-bold text-school-text mb-4 leading-tight hover:text-school-accent transition-colors">
+                      <h3 className="text-2xl font-bold text-school-text mb-4 leading-tight hover:text-school-accent transition-colors break-words">
                         {announcement.title}
                       </h3>
 
                       {/* Summary */}
-                      <p className="text-school-text-muted mb-4 leading-relaxed">
+                      <p className="text-school-text-muted mb-4 leading-relaxed break-words">
                         {announcement.summary}
                       </p>
 
                       {/* Content (if available) */}
                       {announcement.content && (
                         <div className="bg-school-primary/30 rounded-xl p-4 mb-4">
-                          <p className="text-school-text-muted text-sm leading-relaxed">
+                          <p className="text-school-text-muted text-sm leading-relaxed break-words">
                             {announcement.content}
                           </p>
                         </div>
                       )}
 
-                      {/* Image Placeholder */}
+                      {/* Featured Image */}
                       {announcement.imageUrl && (
-                        <div className="w-full h-48 bg-school-accent/10 rounded-xl mb-4 flex items-center justify-center">
-                          <span className="text-school-accent text-sm">
-                            📷 {announcement.category}
-                          </span>
-                        </div>
+                        <figure className="w-full mb-4 overflow-hidden rounded-xl border border-school-accent/20 bg-school-accent/5">
+                          <img
+                            src={announcement.imageUrl}
+                            alt={`Ilustrasi pengumuman ${announcement.title}`}
+                            loading="lazy"
+                            decoding="async"
+                            width={960}
+                            height={540}
+                            className="h-48 w-full object-cover"
+                          />
+                        </figure>
                       )}
 
                       {/* Footer */}
@@ -396,7 +402,7 @@ export function Pengumuman() {
                   {copySuccess ? 'Tautan Tersalin' : 'Salin Tautan'}
                 </Button>
                 <Button asChild variant="outline" className="flex-1 gap-2">
-                  <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
                     <MessageCircle className="w-4 h-4" />
                     WhatsApp
                   </a>
@@ -405,7 +411,7 @@ export function Pengumuman() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button asChild variant="ghost" className="gap-2 justify-start border border-school-accent/20">
-                  <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`} target="_blank" rel="noreferrer">
+                  <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`} target="_blank" rel="noopener noreferrer">
                     <Share2 className="w-4 h-4" />
                     Facebook
                   </a>

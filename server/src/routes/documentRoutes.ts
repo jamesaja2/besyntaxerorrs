@@ -6,7 +6,9 @@ import {
   createDocument,
   deleteDocument,
   downloadDocument,
+  downloadDocumentByShareToken,
   getDocument,
+  getDocumentByShareToken,
   listDocuments,
   listDocumentLogs,
   updateDocumentStatus,
@@ -40,9 +42,6 @@ const upload = multer({
       return cb(new Error('Only PDF files are allowed'));
     }
     cb(null, true);
-  },
-  limits: {
-    fileSize: 15 * 1024 * 1024
   }
 });
 
@@ -62,6 +61,8 @@ const verifyUpload = multer({
 const router = Router();
 
 router.get('/', requireAuth(['admin', 'teacher', 'student']), listDocuments);
+router.get('/share/:token/download', downloadDocumentByShareToken);
+router.get('/share/:token', getDocumentByShareToken);
 router.get('/:id', requireAuth(['admin', 'teacher', 'student']), getDocument);
 router.get('/:id/download', requireAuth(['admin', 'teacher', 'student']), downloadDocument);
 router.get('/:id/logs', requireAuth(['admin']), listDocumentLogs);

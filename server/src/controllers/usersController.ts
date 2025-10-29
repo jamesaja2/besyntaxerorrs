@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma.js';
+import type { Prisma as PrismaTypes } from '@prisma/client';
+import { Prisma, prisma } from '../lib/prisma.js';
 import { hashPassword } from '../utils/password.js';
 
 const baseSchema = z.object({
@@ -51,7 +51,7 @@ const userInclude = {
   }
 } as const;
 
-type UserWithMemberships = Prisma.UserGetPayload<{ include: typeof userInclude }>;
+type UserWithMemberships = PrismaTypes.UserGetPayload<{ include: typeof userInclude }>;
 
 function sanitizeNullableString(value: string | null | undefined) {
   if (value == null) {
@@ -91,7 +91,7 @@ async function findMissingClassIds(classIds: string[]) {
 }
 
 async function syncUserClasses(
-  tx: Prisma.TransactionClient,
+  tx: PrismaTypes.TransactionClient,
   userId: string,
   classIds: string[]
 ) {
@@ -116,7 +116,7 @@ async function syncUserClasses(
     select: { classId: true }
   });
 
-  const existing = new Set(existingMemberships.map((item) => item.classId));
+  const existing = new Set(existingMemberships.map(({ classId }) => classId));
   const newMemberships = classIds
     .filter((classId) => !existing.has(classId))
     .map((classId) => ({
@@ -128,7 +128,7 @@ async function syncUserClasses(
     }));
 
   if (newMemberships.length) {
-    await tx.userClassMembership.createMany({ data: newMemberships, skipDuplicates: true });
+    await tx.userClassMembership.createMany({ data: newMemberships });
   }
 
   await tx.userClassMembership.updateMany({
@@ -210,8 +210,7 @@ export async function createUser(req: Request, res: Response) {
             assignedAt: timestamp,
             createdAt: timestamp,
             updatedAt: timestamp
-          })),
-          skipDuplicates: true
+          }))
         });
       }
 
@@ -239,7 +238,7 @@ export async function updateUser(req: Request, res: Response) {
       .json({ message: 'Invalid user update payload', issues: parse.error.flatten() });
   }
 
-  const data: Prisma.UserUncheckedUpdateInput = {};
+  const data: PrismaTypes.UserUncheckedUpdateInput = {};
 
   if (parse.data.name !== undefined) data.name = parse.data.name;
   if (parse.data.email !== undefined) data.email = parse.data.email.toLowerCase();

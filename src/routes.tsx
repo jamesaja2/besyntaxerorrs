@@ -14,6 +14,8 @@ import { PCPDB } from '@/pages/PCPDB';
 import { Pengumuman } from '@/pages/Pengumuman';
 import { Login } from '@/pages/Login';
 import { DocumentVerification } from '@/pages/DocumentVerification';
+import { DocumentShare } from '@/pages/DocumentShare';
+import NotFound from '@/pages/NotFound';
 
 // Dashboard Components
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -46,6 +48,8 @@ export function AppRoutes() {
       <Route path="/pengumuman" element={<Pengumuman />} />
       <Route path="/login" element={<Login />} />
       <Route path="/verify-document" element={<DocumentVerification />} />
+    <Route path="/documents/share/:token" element={<DocumentShare />} />
+  <Route path="/404" element={<NotFound />} />
       
       {/* Dashboard Routes */}
       <Route path="/dashboard" element={<DashboardLayout />}>
@@ -78,6 +82,8 @@ export function AppRoutes() {
           <Route path=":section" element={<GuestDashboard />} />
         </Route>
       </Route>
+
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

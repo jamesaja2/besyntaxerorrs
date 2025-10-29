@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import type { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import type { Prisma as PrismaTypes } from '@prisma/client';
 import { verifyPassword } from '../utils/password.js';
 import { createToken, verifyToken } from '../utils/token.js';
-import { prisma } from '../lib/prisma.js';
+import { Prisma, prisma } from '../lib/prisma.js';
 
 const authUserInclude = {
   classMemberships: {
@@ -23,7 +23,7 @@ const authUserInclude = {
   }
 } as const;
 
-type AuthUser = Prisma.UserGetPayload<{ include: typeof authUserInclude }>;
+type AuthUser = PrismaTypes.UserGetPayload<{ include: typeof authUserInclude }>;
 
 function serializeAuthUser(user: AuthUser) {
   return {

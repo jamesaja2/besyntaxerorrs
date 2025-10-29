@@ -51,7 +51,9 @@ export type CollectionName =
   | 'users'
   | 'pcpdb'
   | 'validator-history'
-  | 'wawasan';
+  | 'wawasan'
+  | 'assets'
+  | 'virtual-tour';
 
 async function ensureDataFile(collection: CollectionName) {
   const filePath = path.join(DATA_ROOT, `${collection}.json`);

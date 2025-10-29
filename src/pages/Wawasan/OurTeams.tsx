@@ -272,6 +272,9 @@ export function OurTeams() {
                           alt={member.name}
                           className="w-full h-full object-cover"
                           loading="lazy"
+                          decoding="async"
+                          width={192}
+                          height={192}
                         />
                       ) : (
                         <Users className="w-12 h-12 text-school-accent" />

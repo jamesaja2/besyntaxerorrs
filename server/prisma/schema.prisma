@@ -31,6 +31,8 @@ model User {
   announcements            Announcement[]                 @relation("AnnouncementAuthor")
   articles                 Article[]                      @relation("ArticleAuthor")
   issuedDocuments          DocumentRecord[]               @relation("DocumentIssuer")
+  documentAudiences        DocumentAudience[]             @relation("DocumentAudienceUser")
+  createdShareTokens       DocumentShareToken[]           @relation("DocumentShareTokenCreator")
   verificationLogs         DocumentVerificationLog[]      @relation("VerifierLogs")
   validatorHistories       ValidatorHistory[]             @relation("ValidatorHistoryCreator")
   events                   SchoolEvent[]                  @relation("EventCreator")
@@ -55,6 +57,7 @@ model SchoolClass {
   grades             Grade[]
   teacherAssignments TeacherClassAssignment[]
   events             SchoolEvent[]
+  documentAudiences  DocumentAudience[]            @relation("DocumentAudienceClass")
 }
 
 model UserClassMembership {
@@ -426,6 +429,8 @@ model DocumentRecord {
 
   issuer           User?                      @relation("DocumentIssuer", fields: [issuerId], references: [id])
   verificationLogs DocumentVerificationLog[]
+  audiences        DocumentAudience[]
+  shareTokens      DocumentShareToken[]
 }
 
 model DocumentVerificationLog {
@@ -443,4 +448,38 @@ model DocumentVerificationLog {
 
   document       DocumentRecord @relation(fields: [documentId], references: [id])
   verifier       User?          @relation("VerifierLogs", fields: [verifierId], references: [id])
+}
+
+model DocumentAudience {
+  id         String                @id @default(cuid())
+  documentId String
+  type       String                @default("USER")
+  userId     String?
+  classId    String?
+  createdAt  DateTime              @default(now())
+
+  document   DocumentRecord        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User?                 @relation("DocumentAudienceUser", fields: [userId], references: [id], onDelete: SetNull)
+  class      SchoolClass?          @relation("DocumentAudienceClass", fields: [classId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([classId])
+}
+
+model DocumentShareToken {
+  id             String          @id @default(cuid())
+  token          String          @unique
+  documentId     String
+  expiresAt      DateTime?
+  maxDownloads   Int?
+  downloadCount  Int             @default(0)
+  createdById    String?
+  createdAt      DateTime        @default(now())
+
+  document       DocumentRecord  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy      User?           @relation("DocumentShareTokenCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([createdById])
 }

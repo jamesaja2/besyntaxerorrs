@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createAnnouncement, deleteAnnouncement, fetchAnnouncements, updateAnnouncement } from '@/api/announcements';
@@ -14,10 +15,12 @@ import { fetchValidatorHistory, submitDomainCheck } from '@/api/validator';
 import { createSchedule, deleteSchedule, fetchSchedules, updateSchedule } from '@/api/schedules';
 import { fetchFaqItems, createFaqItem, updateFaqItem, deleteFaqItem } from '@/api/faq';
 import { fetchGallery, createGalleryItem, updateGalleryItem, deleteGalleryItem } from '@/api/gallery';
+import { fetchAssets, uploadAsset, deleteAsset } from '@/api/assets';
 import { createClass, deleteClass, fetchClasses, updateClass, updateClassMembers } from '@/api/classes';
 import { fetchSubjects } from '@/api/subjects';
 import { fetchUsers } from '@/api/users';
 import { fetchAdminSettings, updateAdminSettings } from '@/api/settings';
+import { fetchVirtualTour, updateVirtualTour } from '@/api/virtualTour';
 import { fetchTeamMembers, createTeamMember, updateTeamMember, deleteTeamMember, type TeamMemberPayload } from '@/api/teams';
 import {
   fetchHeritageValues,
@@ -52,7 +55,6 @@ import type {
   UpdateExtracurricularPayload,
   ValidatorHistory,
   BasicUserSummary,
-  ClassMemberSummary,
   CreateClassPayload,
   SchoolClassRecord,
   SubjectSummary,
@@ -74,7 +76,10 @@ import type {
   WawasanHeritagePayload,
   WawasanStructureEntry,
   WawasanStructurePayload,
-  TeamMember
+  TeamMember,
+  AssetRecord,
+  VirtualTourConfig,
+  VirtualTourPayload
 } from '@/types/api';
 import { sejarahFallback, sejarahMeta } from '@/data/sejarah';
 import { visiMisiFallback, visiMisiMeta } from '@/data/visimisi';
@@ -104,16 +109,18 @@ import {
   Send,
   BookOpen,
   GraduationCap,
-  Users
+  Users,
+  Images,
+  Copy,
+  Check,
+  Link2
 } from 'lucide-react';
-
-const DAY_OPTIONS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
 const SEO_TOPICS: Array<{ value: SeoTopic; label: string; description: string }> = [
   {
     value: 'landing',
     label: 'Landing Page',
-    description: 'Optimalkan hero, highlight, dan meta tag beranda.'
+    description: 'Optimalkan konten utama agar pengunjung langsung memahami sekolah.'
   },
   {
     value: 'announcements',
@@ -213,6 +220,40 @@ const WAWASAN_LABELS: Record<WawasanKey, string> = {
   'our-teams': 'Tim Pengajar & Staff'
 };
 
+const TIMELINE_SECTION_KEY: WawasanKey = 'sejarah';
+const STRUCTURE_SECTION_KEY: WawasanKey = 'struktur';
+
+function parseVirtualTourUrls(raw: string | null | undefined, fallback: string[] = []): string[] {
+  if (Array.isArray(fallback) && fallback.length && (!raw || !raw.trim())) {
+    return [...fallback];
+  }
+
+  if (!raw) {
+    return [];
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item).trim()).filter(Boolean);
+      }
+    } catch {
+      // fallthrough to newline parsing if JSON parsing fails
+    }
+  }
+
+  return trimmed
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 const TEAM_CATEGORY_OPTIONS: Array<{ value: TeamMember['category']; label: string }> = [
   { value: 'leadership', label: 'Kepala Sekolah & Wakil' },
   { value: 'coordinators', label: 'Koordinator Bidang' },
@@ -220,6 +261,8 @@ const TEAM_CATEGORY_OPTIONS: Array<{ value: TeamMember['category']; label: strin
   { value: 'staff', label: 'Staf Administrasi' },
   { value: 'support', label: 'Tenaga Pendukung' }
 ];
+
+const DAY_OPTIONS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
 const USER_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -264,6 +307,7 @@ type AdminSection =
   | 'wawasan'
   | 'extracurriculars'
   | 'classes'
+  | 'assets'
   | 'documents'
   | 'validator'
   | 'validator-ai'
@@ -291,6 +335,10 @@ const ADMIN_SECTION_META: Record<AdminSection, { title: string; description: str
   classes: {
     title: 'Manajemen Kelas',
     description: 'Tambah kelas baru, atur wali kelas, dan kelola anggota lintas peran.'
+  },
+  assets: {
+    title: 'Perpustakaan Asset',
+    description: 'Unggah dan kelola berkas statis dengan kompresi otomatis untuk gambar.'
   },
   documents: {
     title: 'Manajemen Dokumen Resmi',
@@ -342,6 +390,12 @@ const ADMIN_QUICK_LINKS: Array<{ key: AdminSection; label: string; description: 
     label: 'Dokumen Resmi',
     description: 'Unggah dokumen baru dan tinjau aktivitas unduhan terakhir.',
     icon: Upload
+  },
+  {
+    key: 'assets',
+    label: 'Perpustakaan Asset',
+    description: 'Kompres dan bagikan gambar atau berkas statis untuk konten sekolah.',
+    icon: Images
   },
   {
     key: 'validator',
@@ -459,13 +513,36 @@ function formatFileSize(size: number) {
 
 function AdminDashboardView({ section }: AdminDashboardViewProps) {
   const queryClient = useQueryClient();
-  const [uploadForm, setUploadForm] = useState({
+  const createInitialDocumentFormState = () => ({
     title: '',
     issuedFor: '',
-    description: ''
+    description: '',
+    audienceUserIds: [] as string[],
+    audienceClassIds: [] as string[],
+    generateShareLink: false,
+    shareLinkExpiresAt: '',
+    shareLinkMaxDownloads: ''
   });
+
+  const [uploadForm, setUploadForm] = useState(createInitialDocumentFormState);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
+  const [copiedShareTokenId, setCopiedShareTokenId] = useState<string | null>(null);
+  const [assetFile, setAssetFile] = useState<File | null>(null);
+  const [assetMessage, setAssetMessage] = useState<string | null>(null);
+  const [copiedAssetId, setCopiedAssetId] = useState<string | null>(null);
+  const assetInputRef = useRef<HTMLInputElement | null>(null);
+  const [virtualTourForm, setVirtualTourForm] = useState<VirtualTourPayload>({
+    imageUrl: '',
+    autoLoad: true,
+    autoRotate: 2,
+    pitch: 0,
+    yaw: 0,
+    hfov: 100
+  });
+  const [virtualTourMessage, setVirtualTourMessage] = useState<string | null>(null);
+  const [virtualTourError, setVirtualTourError] = useState<string | null>(null);
+  const [virtualTourPreviewError, setVirtualTourPreviewError] = useState(false);
   const [validatorUrl, setValidatorUrl] = useState('');
   const [validatorMessage, setValidatorMessage] = useState<string | null>(null);
   const [validatorResult, setValidatorResult] = useState<ValidatorHistory | null>(null);
@@ -766,6 +843,25 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
   });
 
   const {
+    data: assets = [],
+    isLoading: assetsLoading,
+    isError: assetsError
+  } = useQuery<AssetRecord[]>({
+    queryKey: ['assets', 'admin'],
+    queryFn: fetchAssets,
+    enabled: section === 'assets'
+  });
+
+  const {
+    data: virtualTourConfig,
+    isLoading: virtualTourLoading,
+    isError: virtualTourFetchError
+  } = useQuery<VirtualTourConfig>({
+    queryKey: ['virtual-tour', 'admin'],
+    queryFn: fetchVirtualTour
+  });
+
+  const {
     data: validatorHistory = [],
     isLoading: validatorLoading
   } = useQuery<ValidatorHistory[]>({
@@ -803,6 +899,61 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     queryKey: ['admin-settings'],
     queryFn: fetchAdminSettings
   });
+
+  const filesBaseUrl = useMemo(() => {
+    const explicit = (import.meta.env.VITE_UPLOAD_BASE_URL as string | undefined)?.trim();
+    if (explicit) {
+      return explicit.replace(/\/$/, '');
+    }
+
+    const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
+    try {
+      const apiUrl = new URL(apiBase);
+      return apiUrl.origin;
+    } catch {
+      return apiBase.replace(/\/api\/?$/, '');
+    }
+  }, []);
+
+  const shareLinkBase = useMemo(() => {
+    const explicit = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
+    if (explicit) {
+      return explicit.replace(/\/$/, '');
+    }
+
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin.replace(/\/$/, '');
+    }
+
+    const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? 'http://localhost:4000/api';
+    try {
+      const parsed = new URL(apiBase);
+      return parsed.origin;
+    } catch {
+      return apiBase.replace(/\/?api\/?$/, '');
+    }
+  }, []);
+
+  const virtualTourUrlList = useMemo(() => parseVirtualTourUrls(virtualTourForm.imageUrl), [virtualTourForm.imageUrl]);
+
+  const virtualTourPreviewUrl = useMemo(() => {
+    const fallback = '/images/school-360-sample.jpg';
+    const primary = virtualTourUrlList[0] ?? virtualTourForm.imageUrl;
+    if (!primary) {
+      return fallback;
+    }
+    if (/^https?:\/\//i.test(primary) || primary.startsWith('data:')) {
+      return primary;
+    }
+    if (primary.startsWith('//')) {
+      return `https:${primary}`;
+    }
+    const origin = filesBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+    if (primary.startsWith('/')) {
+      return `${origin}${primary}`;
+    }
+    return primary;
+  }, [filesBaseUrl, virtualTourForm.imageUrl, virtualTourUrlList]);
 
   const teachers = useMemo(
     () => users.filter((user) => user.role === 'teacher'),
@@ -1050,15 +1201,41 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     });
   }, [classes, memberEditorClassId]);
 
+  useEffect(() => {
+    if (!virtualTourConfig) {
+      return;
+    }
+    const initialUrls = virtualTourConfig.imageUrls && virtualTourConfig.imageUrls.length
+      ? virtualTourConfig.imageUrls
+      : parseVirtualTourUrls(virtualTourConfig.imageUrl ?? undefined);
+    const imageInput = initialUrls.length ? initialUrls.join('\n') : virtualTourConfig.imageUrl ?? '';
+    setVirtualTourForm({
+      imageUrl: imageInput,
+      autoLoad: virtualTourConfig.autoLoad,
+      autoRotate: virtualTourConfig.autoRotate,
+      pitch: virtualTourConfig.pitch,
+      yaw: virtualTourConfig.yaw,
+      hfov: virtualTourConfig.hfov
+    });
+    setVirtualTourPreviewError(false);
+    setVirtualTourMessage(null);
+  }, [virtualTourConfig]);
+
   const uploadMutation = useMutation({
     mutationFn: (payload: FormData) => uploadDocument(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents', 'admin'] });
       setDocumentMessage('Dokumen berhasil diunggah.');
-      setUploadForm({ title: '', issuedFor: '', description: '' });
+      setUploadForm(createInitialDocumentFormState());
       setSelectedFile(null);
+      setCopiedShareTokenId(null);
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      if (isAxiosError(error)) {
+        const data = error.response?.data as { message?: string } | undefined;
+        setDocumentMessage(data?.message ?? 'Gagal mengunggah dokumen, periksa kembali berkas PDF.');
+        return;
+      }
       setDocumentMessage('Gagal mengunggah dokumen, periksa kembali berkas PDF.');
     }
   });
@@ -1073,6 +1250,59 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       setDocumentMessage('Gagal menghapus dokumen.');
     }
   });
+
+  const assetUploadMutation = useMutation({
+    mutationFn: (payload: FormData) => uploadAsset(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets', 'admin'] });
+      setAssetMessage('Asset berhasil diunggah.');
+      setAssetFile(null);
+      if (assetInputRef.current) {
+        assetInputRef.current.value = '';
+      }
+    },
+    onError: () => {
+      setAssetMessage('Gagal mengunggah asset. Coba lagi dengan format berkas yang didukung.');
+    }
+  });
+
+  const assetDeleteMutation = useMutation({
+    mutationFn: (id: string) => deleteAsset(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets', 'admin'] });
+      setAssetMessage('Asset berhasil dihapus.');
+    },
+    onError: () => {
+      setAssetMessage('Gagal menghapus asset.');
+    }
+  });
+
+  const virtualTourMutation = useMutation({
+    mutationFn: (payload: VirtualTourPayload) => updateVirtualTour(payload),
+    onSuccess: (data) => {
+      setVirtualTourMessage('Konfigurasi virtual tour berhasil disimpan.');
+      setVirtualTourError(null);
+      setVirtualTourPreviewError(false);
+      queryClient.invalidateQueries({ queryKey: ['virtual-tour', 'admin'] });
+      queryClient.invalidateQueries({ queryKey: ['virtual-tour'] });
+      setVirtualTourForm({
+        imageUrl: parseVirtualTourUrls(data.imageUrl ?? undefined, data.imageUrls ?? []).join('\n'),
+        autoLoad: data.autoLoad,
+        autoRotate: data.autoRotate,
+        pitch: data.pitch,
+        yaw: data.yaw,
+        hfov: data.hfov
+      });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Gagal menyimpan konfigurasi virtual tour.';
+      setVirtualTourError(message);
+      setVirtualTourMessage(null);
+    }
+  });
+
+  const isVirtualTourSaving = virtualTourMutation.isPending;
+  const isVirtualTourFormDisabled = isVirtualTourSaving || virtualTourLoading;
 
   const validatorMutation = useMutation({
     mutationFn: (url: string) => submitDomainCheck(url),
@@ -2238,6 +2468,16 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     settingsSaveMutation.mutate(payload);
   };
 
+  const handleVirtualTourNumberChange = (field: 'autoRotate' | 'pitch' | 'yaw' | 'hfov') => (event: ChangeEvent<HTMLInputElement>) => {
+    const value = Number(event.target.value);
+    setVirtualTourForm((prev) => ({
+      ...prev,
+      [field]: Number.isFinite(value) ? value : prev[field]
+    }));
+    setVirtualTourError(null);
+    setVirtualTourMessage(null);
+  };
+
   const landingSummary = useMemo(() => [
     {
       label: 'Pengumuman',
@@ -2258,8 +2498,14 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
 
   const handleUploadSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setDocumentMessage(null);
     if (!selectedFile) {
       setDocumentMessage('Pilih berkas PDF sebelum mengunggah.');
+      return;
+    }
+
+    if (!uploadForm.audienceUserIds.length && !uploadForm.audienceClassIds.length && !uploadForm.generateShareLink) {
+      setDocumentMessage('Pilih minimal satu pengguna/kelas atau aktifkan tautan tamu.');
       return;
     }
 
@@ -2268,9 +2514,142 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
     if (uploadForm.title) formData.append('title', uploadForm.title);
     if (uploadForm.description) formData.append('description', uploadForm.description);
     if (uploadForm.issuedFor) formData.append('issuedFor', uploadForm.issuedFor);
+    uploadForm.audienceUserIds.forEach((userId) => {
+      formData.append('audienceUserIds', userId);
+    });
+    uploadForm.audienceClassIds.forEach((classId) => {
+      formData.append('audienceClassIds', classId);
+    });
+
+    if (uploadForm.generateShareLink) {
+      formData.append('generateShareLink', 'true');
+      if (uploadForm.shareLinkExpiresAt) {
+        const expiresAt = new Date(uploadForm.shareLinkExpiresAt);
+        if (Number.isNaN(expiresAt.getTime())) {
+          setDocumentMessage('Tanggal kedaluwarsa tautan tamu tidak valid.');
+          return;
+        }
+        formData.append('shareLinkExpiresAt', expiresAt.toISOString());
+      }
+      if (uploadForm.shareLinkMaxDownloads) {
+        formData.append('shareLinkMaxDownloads', uploadForm.shareLinkMaxDownloads);
+      }
+    }
     formData.append('status', 'active');
 
     uploadMutation.mutate(formData);
+  };
+
+  const handleAssetUpload = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!assetFile) {
+      setAssetMessage('Pilih berkas sebelum mengunggah.');
+      return;
+    }
+
+    setAssetMessage(null);
+    const formData = new FormData();
+    formData.append('file', assetFile);
+    assetUploadMutation.mutate(formData);
+  };
+
+  const handleAudienceUserToggle = (userId: string) => {
+    setDocumentMessage(null);
+    setUploadForm((prev) => {
+      const exists = prev.audienceUserIds.includes(userId);
+      return {
+        ...prev,
+        audienceUserIds: exists
+          ? prev.audienceUserIds.filter((id) => id !== userId)
+          : [...prev.audienceUserIds, userId]
+      };
+    });
+  };
+
+  const handleAudienceClassToggle = (classId: string) => {
+    setDocumentMessage(null);
+    setUploadForm((prev) => {
+      const exists = prev.audienceClassIds.includes(classId);
+      return {
+        ...prev,
+        audienceClassIds: exists
+          ? prev.audienceClassIds.filter((id) => id !== classId)
+          : [...prev.audienceClassIds, classId]
+      };
+    });
+  };
+
+  const handleShareLinkToggle = (checked: boolean) => {
+    setDocumentMessage(null);
+    setUploadForm((prev) => ({
+      ...prev,
+      generateShareLink: checked
+    }));
+  };
+
+  const handleAssetDelete = (assetId: string) => {
+    if (assetDeleteMutation.isPending) {
+      return;
+    }
+    setAssetMessage(null);
+    assetDeleteMutation.mutate(assetId);
+  };
+
+  const handleCopyAssetUrl = async (asset: AssetRecord) => {
+    const fullUrl = `${filesBaseUrl}${asset.url}`;
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopiedAssetId(asset.id);
+      setAssetMessage('URL asset berhasil disalin.');
+      window.setTimeout(() => {
+        setCopiedAssetId((current) => (current === asset.id ? null : current));
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy asset url', error);
+      setAssetMessage('Gagal menyalin URL asset.');
+    }
+  };
+
+  const handleCopyShareLink = async (shareToken: { id: string; token: string }) => {
+    const shareUrl = `${shareLinkBase}/documents/share/${shareToken.token}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedShareTokenId(shareToken.id);
+      setDocumentMessage('Tautan tamu berhasil disalin ke clipboard.');
+      window.setTimeout(() => {
+        setCopiedShareTokenId((current) => (current === shareToken.id ? null : current));
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy share link', error);
+      setDocumentMessage('Gagal menyalin tautan tamu.');
+    }
+  };
+
+  const handleVirtualTourSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setVirtualTourMessage(null);
+    setVirtualTourError(null);
+  const urls = virtualTourUrlList;
+    if (!urls.length) {
+      setVirtualTourError('Masukkan minimal satu URL panorama.');
+      return;
+    }
+
+    const primaryUrl = urls[0];
+    const normalizedImageValue = urls.length > 1 ? JSON.stringify(urls) : primaryUrl;
+    if (!primaryUrl) {
+      setVirtualTourError('URL panorama utama tidak valid.');
+      return;
+    }
+
+    virtualTourMutation.mutate({
+      imageUrl: normalizedImageValue,
+      autoLoad: virtualTourForm.autoLoad,
+      autoRotate: Number(virtualTourForm.autoRotate),
+      pitch: Number(virtualTourForm.pitch),
+      yaw: Number(virtualTourForm.yaw),
+      hfov: Number(virtualTourForm.hfov)
+    });
   };
 
   const handleDownload = async (doc: DocumentRecord) => {
@@ -2283,7 +2662,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(url); // Clean up the URL object
     } catch (error) {
       console.error('Failed to download document', error);
       setDocumentMessage('Gagal mengunduh dokumen.');
@@ -2340,7 +2719,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
                 href={item.href}
                 className="bg-white rounded-xl p-5 shadow-sm border border-school-border hover:shadow-md transition-shadow"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -2632,10 +3011,11 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
         </div>
 
         <Tabs defaultValue="announcements">
-          <TabsList className="grid w-full grid-cols-3 bg-school-surface text-school-text">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-school-surface text-school-text">
             <TabsTrigger value="announcements">Pengumuman</TabsTrigger>
             <TabsTrigger value="faq">FAQ</TabsTrigger>
             <TabsTrigger value="gallery">Galeri</TabsTrigger>
+            <TabsTrigger value="virtual-tour">Virtual Tour 360°</TabsTrigger>
           </TabsList>
 
           <TabsContent value="announcements" className="mt-4">
@@ -3047,7 +3427,7 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
                             <a
                               href={item.imageUrl}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 rounded-lg border border-school-border px-3 py-1 text-xs font-medium text-school-text hover:bg-white"
                             >
                               <ExternalLink size={14} /> Lihat
@@ -3076,6 +3456,186 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="virtual-tour" className="mt-4">
+            <div className="grid gap-6 lg:grid-cols-[1.1fr,1fr]">
+              <form onSubmit={handleVirtualTourSubmit} className="space-y-4 rounded-xl border border-school-border bg-school-surface p-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold text-school-text">Pengaturan Virtual Tour</h3>
+                  <p className="text-sm text-school-text-muted">
+                    Atur gambar panorama dan perilaku virtual tour yang tampil di halaman utama.
+                  </p>
+                </div>
+
+                {virtualTourFetchError && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    Gagal memuat konfigurasi terbaru. Perbarui nilai di bawah ini lalu simpan untuk mengganti konfigurasi.
+                  </div>
+                )}
+
+                <label className="grid gap-1 text-sm text-school-text">
+                  <span>Daftar URL Panorama</span>
+                  <textarea
+                    value={virtualTourForm.imageUrl}
+                    onChange={(event) => {
+                      setVirtualTourForm((prev) => ({ ...prev, imageUrl: event.target.value }));
+                      setVirtualTourPreviewError(false);
+                      setVirtualTourError(null);
+                      setVirtualTourMessage(null);
+                    }}
+                    className="w-full rounded-lg border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-accent"
+                    placeholder={"https://contoh-panorama-1.jpg\nhttps://contoh-panorama-2.jpg"}
+                    rows={3}
+                    disabled={isVirtualTourFormDisabled}
+                    required
+                  />
+                </label>
+                <p className="mt-2 text-xs text-school-text-muted">
+                  Masukkan satu URL panorama per baris. Sistem akan menggunakan baris pertama sebagai tampilan awal.
+                </p>
+                {virtualTourUrlList.length > 1 && (
+                  <p className="mt-1 text-xs text-school-text-muted">
+                    Total panorama terdeteksi: {virtualTourUrlList.length}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-school-text-muted">
+                  Gunakan URL absolut atau jalur <code>/uploads/…</code> dari Asset Library agar gambar 360° dapat dimuat.
+                </p>
+
+                <label className="inline-flex items-center gap-2 text-sm text-school-text">
+                  <input
+                    type="checkbox"
+                    checked={virtualTourForm.autoLoad}
+                    onChange={(event) => {
+                      setVirtualTourForm((prev) => ({ ...prev, autoLoad: event.target.checked }));
+                      setVirtualTourError(null);
+                      setVirtualTourMessage(null);
+                    }}
+                    className="h-4 w-4 rounded border-school-border text-school-accent focus:ring-school-accent"
+                    disabled={isVirtualTourFormDisabled}
+                  />
+                  Muat otomatis saat halaman dibuka
+                </label>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="grid gap-1 text-sm text-school-text">
+                    <span>Kecepatan Auto Rotate</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={virtualTourForm.autoRotate}
+                      onChange={handleVirtualTourNumberChange('autoRotate')}
+                      className="w-full rounded-lg border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-accent"
+                      disabled={isVirtualTourFormDisabled}
+                    />
+                    <span className="text-xs text-school-text-muted">Nilai 0 menonaktifkan rotasi otomatis.</span>
+                  </label>
+
+                  <label className="grid gap-1 text-sm text-school-text">
+                    <span>Field of View (HFOV)</span>
+                    <input
+                      type="number"
+                      min={40}
+                      max={120}
+                      step={1}
+                      value={virtualTourForm.hfov}
+                      onChange={handleVirtualTourNumberChange('hfov')}
+                      className="w-full rounded-lg border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-accent"
+                      disabled={isVirtualTourFormDisabled}
+                    />
+                    <span className="text-xs text-school-text-muted">Atur sudut pandang awal (default 100).</span>
+                  </label>
+
+                  <label className="grid gap-1 text-sm text-school-text">
+                    <span>Pitch Awal</span>
+                    <input
+                      type="number"
+                      min={-90}
+                      max={90}
+                      step={1}
+                      value={virtualTourForm.pitch}
+                      onChange={handleVirtualTourNumberChange('pitch')}
+                      className="w-full rounded-lg border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-accent"
+                      disabled={isVirtualTourFormDisabled}
+                    />
+                    <span className="text-xs text-school-text-muted">Tentukan sudut vertikal awal panorama.</span>
+                  </label>
+
+                  <label className="grid gap-1 text-sm text-school-text">
+                    <span>Yaw Awal</span>
+                    <input
+                      type="number"
+                      min={-360}
+                      max={360}
+                      step={1}
+                      value={virtualTourForm.yaw}
+                      onChange={handleVirtualTourNumberChange('yaw')}
+                      className="w-full rounded-lg border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-accent"
+                      disabled={isVirtualTourFormDisabled}
+                    />
+                    <span className="text-xs text-school-text-muted">Atur arah horizontal yang ditampilkan pertama kali.</span>
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 rounded-lg bg-school-accent px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-school-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={isVirtualTourFormDisabled}
+                  >
+                    {isVirtualTourSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Simpan Virtual Tour
+                  </button>
+                </div>
+
+                {(virtualTourMessage || virtualTourError) && (
+                  <p className={`text-sm ${virtualTourError ? 'text-red-600' : 'text-school-text-muted'}`}>
+                    {virtualTourError ?? virtualTourMessage}
+                  </p>
+                )}
+              </form>
+
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-xl border border-school-border bg-white">
+                  <div className="border-b border-school-border bg-school-surface px-4 py-3">
+                    <h4 className="text-sm font-semibold text-school-text">Pratinjau Gambar</h4>
+                    <p className="text-xs text-school-text-muted">Gambar yang valid akan ditampilkan di bawah ini.</p>
+                  </div>
+                  <div className="relative w-full bg-school-secondary/20" style={{ paddingTop: '56.25%' }}>
+                    {virtualTourLoading ? (
+                      <div className="absolute inset-0 flex items-center justify-center text-sm text-school-text-muted">
+                        <Loader2 size={18} className="animate-spin" />
+                        <span className="ml-2">Memuat konfigurasi...</span>
+                      </div>
+                    ) : virtualTourPreviewError ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-sm text-school-text-muted">
+                        <AlertTriangle size={20} className="text-amber-500" />
+                        <span>Pratinjau gagal dimuat. Pastikan URL dapat diakses publik.</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={virtualTourPreviewUrl}
+                        alt="Pratinjau Virtual Tour"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={() => setVirtualTourPreviewError(true)}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-school-border bg-school-surface p-4 text-sm text-school-text-muted">
+                  <p className="font-semibold text-school-text mb-1">Tips Penggunaan</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Gunakan gambar equirectangular 360° dengan rasio 2:1 untuk hasil terbaik.</li>
+                    <li>Unggah gambar ke Asset Library agar mendapatkan URL <code>/uploads/…</code> yang sudah dikompresi.</li>
+                    <li>Sesuaikan nilai pitch dan yaw untuk mengarahkan pandangan awal ke area favorit.</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -4531,6 +5091,187 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
         </div>
       )}
 
+          {section === 'assets' && (
+            <section className="space-y-6">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-school-text flex items-center gap-2">
+                    <Images size={20} />
+                    Perpustakaan Asset
+                  </h2>
+                  <p className="text-sm text-school-text-muted">
+                    Unggah gambar atau berkas statis. Semua gambar otomatis dikonversi ke WebP dengan lebar maksimal 1920px.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-[1fr,1.5fr]">
+                <form onSubmit={handleAssetUpload} className="space-y-4 rounded-xl border border-school-border bg-white p-5 shadow-sm">
+                  <div className="space-y-2">
+                    <label htmlFor="asset-file" className="block text-sm font-medium text-school-text">
+                      Pilih Berkas
+                    </label>
+                    <input
+                      id="asset-file"
+                      type="file"
+                      ref={assetInputRef}
+                      onChange={(event) => {
+                        setAssetMessage(null);
+                        setCopiedAssetId(null);
+                        setAssetFile(event.target.files?.[0] ?? null);
+                      }}
+                      className="block w-full cursor-pointer rounded-lg border border-school-border bg-school-surface px-3 py-2 text-sm text-school-text focus:outline-none focus:ring-2 focus:ring-school-accent"
+                    />
+                    <p className="text-xs text-school-text-muted">
+                      Format gambar (PNG, JPG, JPEG, WEBP) akan dikompresi ke WebP. Ukuran maksimal berkas 10 MB.
+                    </p>
+                  </div>
+
+                  {assetFile && (
+                    <div className="rounded-lg border border-dashed border-school-border bg-school-surface px-3 py-2 text-xs text-school-text">
+                      <p className="font-medium">{assetFile.name}</p>
+                      <p className="text-school-text-muted">{formatFileSize(assetFile.size)}</p>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-school-accent px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-school-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={!assetFile || assetUploadMutation.isPending}
+                  >
+                    {assetUploadMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                    Unggah Asset
+                  </button>
+
+                  {assetMessage && (
+                    <p className={`text-sm ${assetMessage.toLowerCase().includes('gagal') ? 'text-red-600' : 'text-school-text-muted'}`}>
+                      {assetMessage}
+                    </p>
+                  )}
+                </form>
+
+                <div className="space-y-3">
+                  {assetsLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-school-border bg-white p-4 text-sm text-school-text-muted">
+                      <Loader2 size={16} className="animate-spin" />
+                      Memuat daftar asset...
+                    </div>
+                  )}
+
+                  {assetsError && !assetsLoading && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      Gagal memuat asset. Coba segarkan halaman.
+                    </div>
+                  )}
+
+                  {!assetsLoading && !assetsError && assets.length === 0 && (
+                    <div className="rounded-xl border border-school-border bg-white p-6 text-center text-sm text-school-text-muted">
+                      Belum ada asset yang diunggah.
+                    </div>
+                  )}
+
+                  {!assetsLoading && !assetsError && assets.length > 0 && (
+                    <div className="overflow-hidden rounded-xl border border-school-border bg-white">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-school-surface text-school-text-muted">
+                          <tr>
+                            <th className="px-4 py-2 text-left">Preview</th>
+                            <th className="px-4 py-2 text-left">Nama</th>
+                            <th className="px-4 py-2 text-left">Ukuran</th>
+                            <th className="px-4 py-2 text-left">URL</th>
+                            <th className="px-4 py-2 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-school-border">
+                          {assets.map((asset) => {
+                            const fullUrl = `${filesBaseUrl}${asset.url}`;
+                            const isImage = asset.mimeType?.startsWith('image/') ?? false;
+                            return (
+                              <tr key={asset.id}>
+                                <td className="px-4 py-3">
+                                  {isImage ? (
+                                    <img
+                                      src={fullUrl}
+                                      alt={asset.originalName}
+                                      className="h-12 w-12 rounded-lg border border-school-border object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-school-border text-xs text-school-text-muted">
+                                      File
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 align-top">
+                                  <p className="font-medium text-school-text">{asset.originalName}</p>
+                                  <p className="text-xs text-school-text-muted">Disimpan sebagai {asset.fileName}</p>
+                                  {asset.createdAt && (
+                                    <p className="text-xs text-school-text-muted">
+                                      {new Date(asset.createdAt).toLocaleString('id-ID', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </p>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 align-top text-school-text">
+                                  <div>{formatFileSize(asset.compressedSize)}</div>
+                                  {asset.compressedSize < asset.size && (
+                                    <div className="text-xs text-school-text-muted">
+                                      Dari {formatFileSize(asset.size)}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 align-top">
+                                  <a
+                                    href={fullUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-sm text-school-accent hover:underline"
+                                  >
+                                    <ExternalLink size={14} />
+                                    {asset.url}
+                                  </a>
+                                </td>
+                                <td className="px-4 py-3 align-top">
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyAssetUrl(asset)}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-school-border px-3 py-1 text-xs font-medium text-school-text hover:bg-school-surface"
+                                    >
+                                      {copiedAssetId === asset.id ? <Check size={14} /> : <Copy size={14} />}
+                                      {copiedAssetId === asset.id ? 'Tersalin' : 'Salin URL'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm('Hapus asset ini?')) {
+                                          handleAssetDelete(asset.id);
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                      disabled={assetDeleteMutation.isPending}
+                                    >
+                                      <Trash2 size={14} />
+                                      Hapus
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
       {section === 'documents' && (
         <section id="documents-section" className="space-y-4">
         <div className="flex items-center justify-between">
@@ -4593,6 +5334,111 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
                 placeholder="Informasi tambahan mengenai dokumen"
               />
             </div>
+            <div className="md:col-span-2 space-y-4">
+              <div>
+                <p className="text-sm font-medium text-school-text mb-2">Pilih Audiens</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-school-text-muted mb-2">Kelas</p>
+                    <div className="rounded-lg border border-school-border bg-school-surface/50 max-h-48 overflow-y-auto divide-y divide-school-border">
+                      {classesLoading ? (
+                        <p className="px-3 py-2 text-xs text-school-text-muted">Memuat daftar kelas...</p>
+                      ) : sortedClasses.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-school-text-muted">Belum ada kelas terdaftar.</p>
+                      ) : (
+                        sortedClasses.map((klass) => {
+                          const isChecked = uploadForm.audienceClassIds.includes(klass.id);
+                          return (
+                            <label key={klass.id} className="flex items-start gap-2 px-3 py-2 text-sm text-school-text cursor-pointer hover:bg-white">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 rounded border-school-border text-school-accent focus:ring-school-accent"
+                                checked={isChecked}
+                                onChange={() => handleAudienceClassToggle(klass.id)}
+                              />
+                              <span>
+                                <span className="font-medium block">{klass.name}</span>
+                                <span className="text-xs text-school-text-muted block">Tingkat {klass.gradeLevel} · {klass.academicYear}</span>
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-school-text-muted">Dipilih: {uploadForm.audienceClassIds.length} kelas</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-school-text-muted mb-2">Pengguna</p>
+                    <div className="rounded-lg border border-school-border bg-school-surface/50 max-h-48 overflow-y-auto divide-y divide-school-border">
+                      {usersLoading ? (
+                        <p className="px-3 py-2 text-xs text-school-text-muted">Memuat daftar pengguna...</p>
+                      ) : sortedUsers.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-school-text-muted">Belum ada pengguna terdaftar.</p>
+                      ) : (
+                        sortedUsers.map((user) => {
+                          const isChecked = uploadForm.audienceUserIds.includes(user.id);
+                          return (
+                            <label key={user.id} className="flex items-start gap-2 px-3 py-2 text-sm text-school-text cursor-pointer hover:bg-white">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 rounded border-school-border text-school-accent focus:ring-school-accent"
+                                checked={isChecked}
+                                onChange={() => handleAudienceUserToggle(user.id)}
+                              />
+                              <span>
+                                <span className="font-medium block">{user.name}</span>
+                                <span className="text-xs text-school-text-muted block">{user.email} · {USER_ROLE_LABELS[user.role] ?? user.role}</span>
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-school-text-muted">Dipilih: {uploadForm.audienceUserIds.length} pengguna</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border border-school-border bg-school-surface/50 p-4">
+                <label className="flex items-start gap-3 text-sm text-school-text cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-school-border text-school-accent focus:ring-school-accent"
+                    checked={uploadForm.generateShareLink}
+                    onChange={(event) => handleShareLinkToggle(event.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium block">Aktifkan tautan tamu</span>
+                    <span className="text-xs text-school-text-muted block">
+                      Pengunjung tanpa akun dapat mengunduh dokumen melalui tautan khusus dengan watermark alamat IP.
+                    </span>
+                  </span>
+                </label>
+                {uploadForm.generateShareLink && (
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <label className="text-sm text-school-text">
+                      <span className="mb-1 block">Kedaluwarsa (opsional)</span>
+                      <input
+                        type="datetime-local"
+                        value={uploadForm.shareLinkExpiresAt}
+                        onChange={(event) => setUploadForm((prev) => ({ ...prev, shareLinkExpiresAt: event.target.value }))}
+                        className="w-full rounded-lg border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-accent"
+                      />
+                    </label>
+                    <label className="text-sm text-school-text">
+                      <span className="mb-1 block">Batas unduhan (opsional)</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={uploadForm.shareLinkMaxDownloads}
+                        onChange={(event) => setUploadForm((prev) => ({ ...prev, shareLinkMaxDownloads: event.target.value }))}
+                        className="w-full rounded-lg border border-school-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-accent"
+                        placeholder="Tanpa batas bila dikosongkan"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
             <button
               type="submit"
               className="md:col-span-2 inline-flex items-center justify-center gap-2 bg-school-accent text-white px-4 py-2 rounded-lg hover:bg-school-accent-dark transition-colors disabled:opacity-60"
@@ -4632,11 +5478,35 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-school-border">
-                    {documents.slice(0, 8).map((doc) => (
-                      <tr key={doc.id}>
-                        <td className="py-2 pr-4">
+                    {documents.slice(0, 8).map((doc) => {
+                      const shareTokens = doc.shareTokens ?? [];
+                      const primaryShareToken = shareTokens[0];
+                      const extraShareCount = shareTokens.length > 1 ? shareTokens.length - 1 : 0;
+
+                      return (
+                        <tr key={doc.id}>
+                        <td className="py-2 pr-4 align-top">
                           <p className="font-medium text-school-text">{doc.title ?? doc.originalFileName}</p>
                           <p className="text-xs text-school-text-muted">{formatFileSize(doc.fileSize)}</p>
+                          {doc.audiences && doc.audiences.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {doc.audiences.map((audience) => {
+                                const label = audience.type === 'CLASS'
+                                  ? `Kelas ${audience.class?.name ?? 'Tidak diketahui'}`
+                                  : audience.user?.name ?? 'Pengguna tidak tersedia';
+                                return (
+                                  <span
+                                    key={audience.id}
+                                    className="inline-flex items-center rounded-full bg-school-surface px-2 py-0.5 text-[11px] text-school-text-muted"
+                                  >
+                                    {label}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-[11px] text-school-text-muted">Tidak ada audiens khusus.</p>
+                          )}
                         </td>
                         <td className="py-2 pr-4">
                           <p className="text-school-text text-sm">{doc.issuedFor ?? '-'}</p>
@@ -4654,24 +5524,53 @@ function AdminDashboardView({ section }: AdminDashboardViewProps) {
                           </span>
                         </td>
                         <td className="py-2 pr-4 text-sm text-school-text">{doc.downloads}</td>
-                        <td className="py-2 pr-0 flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleDownload(doc)}
-                            className="inline-flex items-center justify-center bg-school-surface border border-school-border rounded-lg px-3 py-1.5 text-xs font-medium text-school-text hover:bg-school-sidebar-hover"
-                          >
-                            <Download size={14} className="mr-1" /> Unduh
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteMutation.mutate(doc.id)}
-                            className="inline-flex items-center justify-center bg-red-50 text-red-600 border border-red-100 rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-red-100"
-                          >
-                            <Trash2 size={14} className="mr-1" /> Hapus
-                          </button>
+                        <td className="py-2 pr-0 align-top">
+                          <div className="flex flex-col items-end gap-2">
+                            {primaryShareToken ? (
+                              <div className="flex flex-col items-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyShareLink(primaryShareToken)}
+                                  className="inline-flex items-center gap-2 rounded-lg border border-school-border px-3 py-1 text-xs font-medium text-school-text hover:bg-school-surface"
+                                >
+                                  {copiedShareTokenId === primaryShareToken.id ? <Check size={14} /> : <Link2 size={14} />}
+                                  {copiedShareTokenId === primaryShareToken.id ? 'Tautan tersalin' : 'Salin tautan tamu'}
+                                </button>
+                                <p className="text-[11px] text-school-text-muted">
+                                  {primaryShareToken.expiresAt ? `Kedaluwarsa ${formatDateTime(primaryShareToken.expiresAt)}` : 'Tanpa kedaluwarsa'}
+                                  {' · '}
+                                  {primaryShareToken.maxDownloads
+                                    ? `${primaryShareToken.downloadCount}/${primaryShareToken.maxDownloads} unduhan`
+                                    : `${primaryShareToken.downloadCount} unduhan`}
+                                </p>
+                                {extraShareCount > 0 && (
+                                  <p className="text-[10px] text-school-text-muted">+ {extraShareCount} tautan tambahan</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-school-text-muted">Tautan tamu tidak aktif.</p>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleDownload(doc)}
+                                className="inline-flex items-center justify-center bg-school-surface border border-school-border rounded-lg px-3 py-1.5 text-xs font-medium text-school-text hover:bg-school-sidebar-hover"
+                              >
+                                <Download size={14} className="mr-1" /> Unduh
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteMutation.mutate(doc.id)}
+                                className="inline-flex items-center justify-center bg-red-50 text-red-600 border border-red-100 rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-red-100"
+                              >
+                                <Trash2 size={14} className="mr-1" /> Hapus
+                              </button>
+                            </div>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -1,35 +1,123 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { SEO } from '@/components/SEO';
 import { Hero } from '@/components/sections/Hero';
 import { Section, SectionHeader, SectionTitle, SectionDescription } from '@/components/sections/Section';
 import { Link } from 'react-router-dom';
+import { fetchVirtualTour } from '@/api/virtualTour';
 
 const VirtualTour360 = lazy(async () => {
   const module = await import('@/components/VirtualTour360');
   return { default: module.VirtualTour360 ?? module.default };
 });
 
+function parseVirtualTourUrls(raw?: string | null): string[] {
+  if (!raw) {
+    return [];
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return [];
+  }
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item).trim()).filter(Boolean);
+      }
+    } catch {
+      // ignore parse failure and fallback to newline separation
+    }
+  }
+  return trimmed
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 const Highlights = lazy(async () => {
   const module = await import('@/components/sections/Highlights');
-  return { default: module.Highlights ?? module.default };
+  return { default: module.Highlights };
 });
 
 const Announcements = lazy(async () => {
   const module = await import('@/components/sections/Announcements');
-  return { default: module.Announcements ?? module.default };
+  return { default: module.Announcements };
 });
 
 const QuickLinks = lazy(async () => {
   const module = await import('@/components/sections/QuickLinks');
-  return { default: module.QuickLinks ?? module.default };
+  return { default: module.QuickLinks };
 });
 
 const AboutShort = lazy(async () => {
   const module = await import('@/components/sections/AboutShort');
-  return { default: module.AboutShort ?? module.default };
+  return { default: module.AboutShort };
 });
 
 export function Home() {
+  const { data: virtualTour, isLoading: virtualTourLoading } = useQuery({
+    queryKey: ['virtual-tour'],
+    queryFn: fetchVirtualTour
+  });
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+
+  const uploadsBaseUrl = useMemo(() => {
+    const explicit = (import.meta.env.VITE_UPLOAD_BASE_URL as string | undefined)?.trim();
+    if (explicit) {
+      return explicit.replace(/\/$/, '');
+    }
+
+    const apiEnv = import.meta.env.VITE_API_URL as string | undefined;
+    if (apiEnv) {
+      try {
+        const apiUrl = new URL(apiEnv);
+        return apiUrl.origin;
+      } catch {
+        return apiEnv.replace(/\/api\/?$/, '');
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+
+    return '';
+  }, []);
+
+  const virtualTourScenes = useMemo(() => {
+    const fallback = ['/images/school-360-sample.jpg'];
+    const rawUrls = virtualTour?.imageUrls && virtualTour.imageUrls.length
+      ? virtualTour.imageUrls
+      : parseVirtualTourUrls(virtualTour?.imageUrl);
+    const effective = rawUrls.length ? rawUrls : fallback;
+    return effective.map((raw) => {
+      if (/^https?:\/\//i.test(raw) || raw.startsWith('data:')) {
+        return { raw, resolved: raw };
+      }
+      if (raw.startsWith('//')) {
+        return { raw, resolved: `https:${raw}` };
+      }
+      const origin = uploadsBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+      if (raw.startsWith('/')) {
+        return { raw, resolved: `${origin}${raw}` };
+      }
+      return { raw, resolved: raw };
+    });
+  }, [uploadsBaseUrl, virtualTour?.imageUrl, virtualTour?.imageUrls]);
+
+  useEffect(() => {
+    if (activeSceneIndex >= virtualTourScenes.length) {
+      setActiveSceneIndex(0);
+    }
+  }, [activeSceneIndex, virtualTourScenes.length]);
+
+  useEffect(() => {
+    setActiveSceneIndex(0);
+  }, [virtualTour?.imageUrl, virtualTour?.imageUrls]);
+
+  const activeScene = virtualTourScenes[activeSceneIndex] ?? virtualTourScenes[0];
+
   return (
     <>
       <SEO 
@@ -53,12 +141,42 @@ export function Home() {
         </div>
         
         <Suspense fallback={<div className="h-[70vh] rounded-2xl bg-school-secondary/40 animate-pulse" aria-hidden="true" />}>
-          <VirtualTour360 
-            imageUrl="/images/school-360-sample.jpg"
-            autoLoad={true}
-            autoRotate={2}
-          />
+          {virtualTourLoading ? (
+            <div className="h-[70vh] rounded-2xl bg-school-secondary/40 animate-pulse" aria-hidden="true" />
+          ) : (
+            <VirtualTour360 
+              key={activeScene?.resolved ?? 'virtual-tour-fallback'}
+              imageUrl={activeScene?.resolved ?? '/images/school-360-sample.jpg'}
+              autoLoad={virtualTour?.autoLoad ?? true}
+              autoRotate={virtualTour?.autoRotate ?? 2}
+              pitch={virtualTour?.pitch ?? 0}
+              yaw={virtualTour?.yaw ?? 0}
+              hfov={virtualTour?.hfov ?? 100}
+            />
+          )}
         </Suspense>
+
+        {!virtualTourLoading && virtualTourScenes.length > 1 && (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {virtualTourScenes.map((scene, index) => {
+              const isActive = index === activeSceneIndex;
+              return (
+                <button
+                  key={scene.raw || `scene-${index}`}
+                  type="button"
+                  onClick={() => setActiveSceneIndex(index)}
+                  className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                    isActive
+                      ? 'border-school-accent bg-school-accent text-white'
+                      : 'border-school-border bg-white text-school-text hover:border-school-accent'
+                  }`}
+                >
+                  Panorama {index + 1}
+                </button>
+              );
+            })}
+          </div>
+        )}
         
         <div className="text-center mt-8">
           <p className="text-sm text-school-text-muted">

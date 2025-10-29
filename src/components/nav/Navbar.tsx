@@ -59,6 +59,10 @@ export function Navbar() {
                 <img 
                   src="https://smakstlouis1sby.sch.id/storage/2019/08/Logo-512-01.png"
                   alt="SMA St. Louis 1 Logo"
+                  loading="eager"
+                  decoding="async"
+                  width={64}
+                  height={64}
                   className="w-full h-full object-contain"
                 />
               </div>

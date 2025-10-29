@@ -100,3 +100,22 @@ export interface TeamMember extends BaseEntity {
   photo?: string;
   order?: number;
 }
+
+export interface Asset extends BaseEntity {
+  originalName: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  compressedSize: number;
+  url: string;
+  uploadedBy?: string | null;
+}
+
+export interface VirtualTourConfig extends BaseEntity {
+  imageUrl: string;
+  autoLoad: boolean;
+  autoRotate: number;
+  pitch: number;
+  yaw: number;
+  hfov: number;
+}

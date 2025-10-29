@@ -1,0 +1,13 @@
+[
+  {
+    "id": "virtual-tour-default",
+    "imageUrl": "http://localhost:4000/uploads/1761658328145-photo-1557971370-e7298ee473fb.webp",
+    "autoLoad": true,
+    "autoRotate": 2,
+    "pitch": 0,
+    "yaw": 0,
+    "hfov": 100,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2025-10-28T13:32:32.038Z"
+  }
+]

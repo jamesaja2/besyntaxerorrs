@@ -61,6 +61,10 @@ export function VirtualTour360({
   const [forceHideLoading, setForceHideLoading] = useState(false);
 
   useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [imageUrl]);
+
+  useEffect(() => {
     let progressInterval: NodeJS.Timeout;
     let timeoutId: NodeJS.Timeout;
     let forceHideTimeout: NodeJS.Timeout;

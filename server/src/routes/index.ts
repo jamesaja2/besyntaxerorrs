@@ -21,6 +21,7 @@ import eventRoutes from './eventRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import settingsRoutes from './settingsRoutes.js';
 import seoRoutes from './seoRoutes.js';
+import virtualTourRoutes from './virtualTourRoutes.js';
 
 const router = Router();
 
@@ -46,5 +47,6 @@ router.use('/events', eventRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/seo', seoRoutes);
+router.use('/virtual-tour', virtualTourRoutes);
 
 export default router;

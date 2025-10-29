@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Search, Settings, User, Menu, Sun, Moon } from 'lucide-react';
+import { Bell, Search, Settings, Menu, Sun, Moon } from 'lucide-react';
 import { User as UserType } from '@/types';
 
 interface DashboardHeaderProps {
@@ -19,9 +19,9 @@ export function DashboardHeader({ user, onSidebarToggle }: DashboardHeaderProps)
   const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
-    <header className="bg-white border-b border-school-border px-6 py-4 flex items-center justify-between">
+    <header className="bg-white border-b border-school-border px-4 py-3 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-3">
       {/* Left side */}
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-1 items-center gap-3 min-w-0">
         <button
           onClick={onSidebarToggle}
           className="p-2 rounded-lg hover:bg-school-surface transition-colors lg:hidden"
@@ -30,16 +30,18 @@ export function DashboardHeader({ user, onSidebarToggle }: DashboardHeaderProps)
         </button>
 
         {/* Search */}
-        <div className={`relative transition-all duration-200 ${
-          isSearchFocused ? 'w-80' : 'w-64'
-        }`}>
+        <div
+          className={`relative transition-all duration-200 flex-1 max-w-xs sm:max-w-sm ${
+            isSearchFocused ? 'lg:max-w-lg' : 'lg:max-w-md'
+          }`}
+        >
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search size={16} className="text-school-text-muted" />
           </div>
           <input
             type="text"
             placeholder="Search courses, assignments, users..."
-            className="w-full pl-10 pr-4 py-2 border border-school-border rounded-lg focus:ring-2 focus:ring-school-accent focus:border-transparent transition-all"
+            className="w-full rounded-lg border border-school-border py-2 pl-10 pr-4 transition-all focus:border-transparent focus:ring-2 focus:ring-school-accent"
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
           />
@@ -47,7 +49,7 @@ export function DashboardHeader({ user, onSidebarToggle }: DashboardHeaderProps)
       </div>
 
       {/* Right side */}
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
         {/* AI Search */}
         <div className="hidden md:flex items-center space-x-2 bg-school-gradient-blue px-3 py-2 rounded-lg">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

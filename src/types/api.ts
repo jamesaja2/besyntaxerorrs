@@ -192,6 +192,57 @@ export interface TeamMember {
   updatedAt?: string;
 }
 
+export type DocumentAudienceType = 'USER' | 'CLASS';
+
+export interface DocumentAudienceEntry {
+  id: string;
+  type: DocumentAudienceType;
+  user?: BasicUserSummary | null;
+  class?: {
+    id: string;
+    name: string;
+    gradeLevel: number;
+    academicYear: string;
+  } | null;
+  createdAt: string;
+}
+
+export interface DocumentShareTokenRecord {
+  id: string;
+  token: string;
+  expiresAt: string | null;
+  maxDownloads: number | null;
+  downloadCount: number;
+  createdAt: string;
+}
+
+export interface SharedDocumentSummary {
+  id: string;
+  title: string | null;
+  description: string | null;
+  originalFileName: string;
+  fileSize: number;
+  mimeType: string;
+  issuedFor: string | null;
+  issuedAt: string;
+  status: DocumentRecord['status'];
+  createdAt: string;
+}
+
+export interface SharedDocumentShareInfo {
+  token: string;
+  expiresAt: string | null;
+  maxDownloads: number | null;
+  downloadCount: number;
+  remainingDownloads: number | null;
+  createdAt: string;
+}
+
+export interface SharedDocumentResponse {
+  document: SharedDocumentSummary;
+  shareToken: SharedDocumentShareInfo;
+}
+
 export interface DocumentRecord {
   id: string;
   title: string | null;
@@ -213,6 +264,44 @@ export interface DocumentRecord {
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
+  audiences?: DocumentAudienceEntry[];
+  shareTokens?: DocumentShareTokenRecord[];
+}
+
+export interface AssetRecord {
+  id: string;
+  originalName: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  compressedSize: number;
+  url: string;
+  uploadedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VirtualTourConfig {
+  id: string;
+  imageUrl: string;
+  imageUrls?: string[];
+  autoLoad: boolean;
+  autoRotate: number;
+  pitch: number;
+  yaw: number;
+  hfov: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VirtualTourPayload {
+  imageUrl: string;
+  imageUrls?: string[];
+  autoLoad: boolean;
+  autoRotate: number;
+  pitch: number;
+  yaw: number;
+  hfov: number;
 }
 
 export interface DocumentVerificationLog {

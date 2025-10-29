@@ -7,9 +7,9 @@ export const schoolInfo = {
   email: "info@smakstlouis1sby.sch.id",
   website: "https://smakstlouis1sby.sch.id",
   socials: {
-    instagram: "https://instagram.com/stlouis1sby",
-    youtube: "https://youtube.com/@stlouis1sby",
-    facebook: "https://facebook.com/stlouis1sby"
+    instagram: "https://instagram.com/stlouissby",
+    youtube: "https://www.youtube.com/@SinluiTV/",
+    facebook: "https://facebook.com/stlouissby"
   },
   tagline: "Be Excellent In Faith And Knowledge",
   description: "Sekolah Katolik berkarakter Vinsensian yang mengutamakan pendidikan holistik dengan nilai-nilai kasih, kerendahan hati, dan pelayanan kepada sesama.",

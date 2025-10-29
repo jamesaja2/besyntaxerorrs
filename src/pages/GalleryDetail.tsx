@@ -166,6 +166,10 @@ export function GalleryDetail() {
               <img
                 src={galleryItem.imageUrl}
                 alt={galleryItem.title}
+                loading="lazy"
+                decoding="async"
+                width={1280}
+                height={720}
                 className="h-80 w-full object-cover"
               />
             </div>

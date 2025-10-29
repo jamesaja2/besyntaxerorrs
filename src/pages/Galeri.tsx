@@ -273,6 +273,10 @@ export function Galeri() {
                         <img 
                           src={item.imageUrl}
                           alt={item.title}
+                          loading="lazy"
+                          decoding="async"
+                          width={640}
+                          height={360}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
@@ -407,7 +411,7 @@ export function Galeri() {
                   {copySuccess ? 'Teks Tersalin' : 'Salin Teks'}
                 </Button>
                 <Button asChild variant="outline" className="flex-1 gap-2">
-                  <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
                     <MessageCircle className="w-4 h-4" />
                     WhatsApp
                   </a>
@@ -416,7 +420,7 @@ export function Galeri() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button asChild variant="ghost" className="gap-2 justify-start border border-school-accent/20">
-                  <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`} target="_blank" rel="noreferrer">
+                  <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`} target="_blank" rel="noopener noreferrer">
                     <Share2 className="w-4 h-4" />
                     Facebook
                   </a>

@@ -6,14 +6,26 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 
 export function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-school-secondary flex">
+    <div className="relative min-h-screen bg-school-secondary flex">
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Tutup menu"
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <DashboardSidebar 
         isCollapsed={sidebarCollapsed}
+        isMobileOpen={mobileSidebarOpen}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main Content */}
@@ -21,11 +33,11 @@ export function DashboardLayout() {
         {/* Header */}
         <DashboardHeader 
           user={user}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onSidebarToggle={() => setMobileSidebarOpen((prev) => !prev)}
         />
 
         {/* Page Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 px-4 py-6 sm:px-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>

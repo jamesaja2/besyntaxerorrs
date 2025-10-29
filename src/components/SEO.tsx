@@ -26,6 +26,23 @@ export function SEO({
     ? [structuredData]
     : [];
 
+  const siteOrigin = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '')
+    ?? (typeof window !== 'undefined' ? window.location.origin : 'https://smakstlouis1sby.sch.id');
+
+  const canonicalUrl = (() => {
+    if (!url) {
+      return siteOrigin;
+    }
+    try {
+      const candidate = new URL(url, siteOrigin);
+      return candidate.toString().replace(/\/$/, '') || siteOrigin;
+    } catch {
+      return `${siteOrigin}${url.startsWith('/') ? url : `/${url}`}`.replace(/\/$/, '');
+    }
+  })();
+
+  const gaMeasurementId = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+
   return (
     <Helmet>
       <title>{fullTitle}</title>
@@ -37,7 +54,7 @@ export function SEO({
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
-      <meta property="og:url" content={url} />
+      <meta property="og:url" content={canonicalUrl} />
       
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
@@ -49,7 +66,12 @@ export function SEO({
       <meta name="robots" content="index, follow" />
       <meta name="author" content="SMA Katolik St. Louis 1 Surabaya" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <link rel="canonical" href={url} />
+      <link rel="canonical" href={canonicalUrl} />
+      <link rel="preconnect" href="https://www.googletagmanager.com" />
+      <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+      {gaMeasurementId && (
+        <link rel="preconnect" href="https://www.google-analytics.com" />
+      )}
       
       {/* JSON-LD Structured Data */}
       <script type="application/ld+json">
@@ -84,6 +106,19 @@ export function SEO({
           {JSON.stringify(data)}
         </script>
       ))}
+      {gaMeasurementId && (
+        <>
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`} />
+          <script>
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${gaMeasurementId}', { anonymize_ip: true });
+            `}
+          </script>
+        </>
+      )}
     </Helmet>
   );
 }

@@ -172,6 +172,10 @@ export function ArticleDetail() {
               <img
                 src={article.coverImage}
                 alt={article.title}
+                loading="lazy"
+                decoding="async"
+                width={1280}
+                height={720}
                 className="h-80 w-full object-cover"
               />
             </div>

@@ -1,6 +1,6 @@
 ﻿import { z } from 'zod';
 import type { Response } from 'express';
-import { Prisma } from '@prisma/client';
+import type { Prisma as PrismaTypes } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -62,7 +62,7 @@ const classInclude = {
   }
 } as const;
 
-type ClassWithRelations = Prisma.SchoolClassGetPayload<{ include: typeof classInclude }>;
+type ClassWithRelations = PrismaTypes.SchoolClassGetPayload<{ include: typeof classInclude }>;
 
 function normalizeIds(values: string[] | undefined) {
   if (!values) {
@@ -95,7 +95,7 @@ async function ensureUsersExist(userIds: string[]) {
 }
 
 async function syncClassMembers(
-  tx: Prisma.TransactionClient,
+  tx: PrismaTypes.TransactionClient,
   classId: string,
   memberIds: string[]
 ) {
@@ -153,21 +153,33 @@ function serializeClass(entry: ClassWithRelations) {
     description: entry.description,
     homeroomTeacher: entry.homeroomTeacher ?? null,
     memberCount: entry.memberships.length,
-    members: entry.memberships.map((membership) => ({
-      id: membership.user.id,
-      name: membership.user.name,
-      email: membership.user.email,
-      role: membership.user.role,
-      assignedAt: membership.assignedAt.toISOString()
+    members: entry.memberships.map(({ user, assignedAt }) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      assignedAt: assignedAt.toISOString()
     })),
-    teacherAssignments: entry.teacherAssignments.map((item) => ({
-      id: item.id,
-      role: item.role,
-      subject: item.subject,
-      teacher: item.teacher,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString()
-    })),
+    teacherAssignments: entry.teacherAssignments.map(
+      ({ id, role, subject, teacher, createdAt, updatedAt }) => ({
+        id,
+        role,
+        subject: subject
+          ? {
+              id: subject.id,
+              name: subject.name,
+              code: subject.code
+            }
+          : null,
+        teacher: {
+          id: teacher.id,
+          name: teacher.name,
+          email: teacher.email
+        },
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString()
+      })
+    ),
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString()
   };
@@ -226,7 +238,7 @@ export async function updateClass(req: AuthenticatedRequest, res: Response) {
       .json({ message: 'Invalid class update payload', issues: parsed.error.flatten() });
   }
 
-  const data: Prisma.SchoolClassUncheckedUpdateInput = {};
+  const data: PrismaTypes.SchoolClassUncheckedUpdateInput = {};
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
   if (parsed.data.gradeLevel !== undefined) data.gradeLevel = parsed.data.gradeLevel;
   if (parsed.data.academicYear !== undefined) data.academicYear = parsed.data.academicYear;

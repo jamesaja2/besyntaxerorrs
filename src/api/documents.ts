@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { DocumentRecord, DocumentVerificationResult } from '@/types/api';
+import type { DocumentRecord, DocumentVerificationResult, SharedDocumentResponse } from '@/types/api';
 
 export interface DocumentFilters {
   status?: string;
@@ -21,6 +21,18 @@ export async function deleteDocument(id: string) {
 
 export async function downloadDocumentFile(id: string) {
   const response = await api.get<Blob>(`/documents/${id}/download`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+export async function fetchSharedDocument(token: string) {
+  const response = await api.get<SharedDocumentResponse>(`/documents/share/${token}`);
+  return response.data;
+}
+
+export async function downloadSharedDocument(token: string) {
+  const response = await api.get<Blob>(`/documents/share/${token}/download`, {
     responseType: 'blob'
   });
   return response.data;

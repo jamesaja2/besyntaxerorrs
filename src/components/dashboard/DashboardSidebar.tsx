@@ -17,13 +17,17 @@ import {
   Sparkles,
   Bot,
   BookOpen,
-  GraduationCap
+  GraduationCap,
+  Images,
+  X
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 interface NavItem {
@@ -37,13 +41,14 @@ const navigationByRole: Record<UserRole, NavItem[]> = {
     { label: 'Overview', icon: LayoutDashboard, to: '/dashboard/admin/overview' },
     { label: 'Landing Content', icon: Home, to: '/dashboard/admin/landing' },
     { label: 'Wawasan Content', icon: BookOpen, to: '/dashboard/admin/wawasan' },
-  { label: 'Extracurriculars', icon: Users, to: '/dashboard/admin/extracurriculars' },
-  { label: 'Class Management', icon: GraduationCap, to: '/dashboard/admin/classes' },
+    { label: 'Extracurriculars', icon: Users, to: '/dashboard/admin/extracurriculars' },
+    { label: 'Class Management', icon: GraduationCap, to: '/dashboard/admin/classes' },
+    { label: 'Asset Library', icon: Images, to: '/dashboard/admin/assets' },
     { label: 'User Management', icon: Users, to: '/dashboard/admin/users' },
     { label: 'Documents', icon: FileText, to: '/dashboard/admin/documents' },
     { label: 'Domain Validator', icon: ShieldCheck, to: '/dashboard/admin/validator' },
     { label: 'AI Domain Analyst', icon: Sparkles, to: '/dashboard/admin/validator-ai' },
-  { label: 'AI SEO Assistant', icon: Bot, to: '/dashboard/admin/seo' },
+    { label: 'AI SEO Assistant', icon: Bot, to: '/dashboard/admin/seo' },
     { label: 'Schedules', icon: CalendarRange, to: '/dashboard/admin/schedules' },
     { label: 'Settings', icon: Settings, to: '/dashboard/admin/settings' }
   ],
@@ -68,7 +73,7 @@ const navigationByRole: Record<UserRole, NavItem[]> = {
   ]
 };
 
-export function DashboardSidebar({ isCollapsed, onToggle }: SidebarProps) {
+export function DashboardSidebar({ isCollapsed, onToggle, isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -77,6 +82,7 @@ export function DashboardSidebar({ isCollapsed, onToggle }: SidebarProps) {
   const handleLogout = () => {
     logout();
     navigate('/');
+    onCloseMobile?.();
   };
 
   const getRoleColor = (role: UserRole) => {
@@ -91,110 +97,119 @@ export function DashboardSidebar({ isCollapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <div
-      className={`${
-        isCollapsed ? 'w-16' : 'w-64'
-      } bg-school-sidebar border-r border-school-border transition-all duration-300 ease-in-out flex flex-col h-full`}
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 flex h-full w-64 transform bg-school-sidebar border-r border-school-border transition-transform duration-300 ease-in-out ${
+        isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:static lg:flex lg:translate-x-0 ${isCollapsed ? 'lg:w-16' : 'lg:w-64'}`}
+      aria-label="Menu dashboard"
     >
-      
-      {/* Header */}
-      <div className="p-4 border-b border-school-border">
-        <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-school-accent to-school-accent-dark rounded-lg flex items-center justify-center">
-                <Monitor size={16} className="text-white" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-school-text">School Portal</h2>
-                {user && (
-                  <span className={`text-xs px-2 py-1 rounded-full ${getRoleColor(user.role)}`}>
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          <button
-            onClick={onToggle}
-            className="p-1 rounded-lg hover:bg-school-sidebar-hover transition-colors"
-          >
-            <ChevronDown 
-              size={16} 
-              className={`text-school-text-muted transition-transform ${
-                isCollapsed ? 'rotate-90' : 'rotate-0'
-              }`} 
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* User Profile */}
-      {user && (
-        <div className="p-4 border-b border-school-border">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-school-accent to-school-accent-dark flex items-center justify-center text-white font-medium">
-              {user.name.charAt(0).toUpperCase()}
-            </div>
+      <div className="flex h-full w-full flex-col">
+        {/* Header */}
+        <div className="relative border-b border-school-border p-4">
+          <div className="flex items-center justify-between">
             {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-school-text truncate">
-                  {user.name}
-                </p>
-                <p className="text-xs text-school-text-muted truncate">
-                  {user.email}
-                </p>
+              <div className="flex items-center space-x-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-school-accent to-school-accent-dark">
+                  <Monitor size={16} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-school-text">School Portal</h2>
+                  {user && (
+                    <span className={`text-xs px-2 py-1 rounded-full ${getRoleColor(user.role)}`}>
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
+            <button
+              onClick={onToggle}
+              className="hidden rounded-lg p-1 transition-colors hover:bg-school-sidebar-hover lg:inline-flex"
+              aria-label="Kecilkan menu"
+            >
+              <ChevronDown
+                size={16}
+                className={`text-school-text-muted transition-transform ${
+                  isCollapsed ? 'rotate-90' : 'rotate-0'
+                }`}
+              />
+            </button>
           </div>
+          {isMobileOpen && (
+            <button
+              onClick={onCloseMobile}
+              className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-school-text-muted transition-colors hover:bg-school-sidebar-hover lg:hidden"
+              aria-label="Tutup menu"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
-      )}
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {filteredNavigation.map((item) => (
+        {/* User Profile */}
+        {user && (
+          <div className="border-b border-school-border p-4">
+            <div className="flex items-center space-x-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-school-accent to-school-accent-dark text-white font-medium">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              {!isCollapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-school-text">{user.name}</p>
+                  <p className="truncate text-xs text-school-text-muted">{user.email}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="flex-1 space-y-2 overflow-y-auto p-4">
+          {filteredNavigation.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex items-center space-x-3 rounded-lg px-3 py-2 transition-colors ${
+                  isActive
+                    ? 'bg-school-accent text-white'
+                    : 'text-school-text-muted hover:bg-school-sidebar-hover hover:text-school-text'
+                }`
+              }
+              onClick={() => onCloseMobile?.()}
+            >
+              <item.icon size={20} />
+              {!isCollapsed && <span>{item.label}</span>}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Footer Actions */}
+        <div className="space-y-2 border-t border-school-border p-4">
           <NavLink
-            key={item.to}
-            to={item.to}
+            to="/"
             className={({ isActive }) =>
-              `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+              `flex items-center space-x-3 rounded-lg px-3 py-2 transition-colors ${
                 isActive
                   ? 'bg-school-accent text-white'
                   : 'text-school-text-muted hover:bg-school-sidebar-hover hover:text-school-text'
               }`
             }
-            style={{ paddingLeft: `${isCollapsed ? 12 : 12}px` }}
+            onClick={() => onCloseMobile?.()}
           >
-            <item.icon size={20} />
-            {!isCollapsed && <span>{item.label}</span>}
+            <Home size={20} />
+            {!isCollapsed && <span>Back to Website</span>}
           </NavLink>
-        ))}
-      </nav>
 
-      {/* Footer Actions */}
-      <div className="border-t border-school-border p-4 space-y-2">
-        <NavLink
-          to="/"
-          className={({ isActive }) =>
-            `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-              isActive
-                ? 'bg-school-accent text-white'
-                : 'text-school-text-muted hover:bg-school-sidebar-hover hover:text-school-text'
-            }`
-          }
-        >
-          <Home size={20} />
-          {!isCollapsed && <span>Back to Website</span>}
-        </NavLink>
-        
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-school-text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
-        >
-          <LogOut size={20} />
-          {!isCollapsed && <span>Logout</span>}
-        </button>
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center space-x-3 rounded-lg px-3 py-2 text-school-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut size={20} />
+            {!isCollapsed && <span>Logout</span>}
+          </button>
+        </div>
       </div>
-    </div>
+    </aside>
   );
 }
