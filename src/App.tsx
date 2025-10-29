@@ -6,6 +6,7 @@ import { Navbar } from '@/components/nav/Navbar';
 import { Footer } from '@/components/sections/Footer';
 import { AppRoutes } from '@/routes';
 import { FloatingBrandSlot } from '@/components/FloatingBrandSlot';
+import { ChatlingWidget } from '@/components/ChatlingWidget';
 
 // Scroll to top component
 function ScrollToTop() {
@@ -31,6 +32,7 @@ function App() {
             </main>
             <FloatingBrandSlot />
             <Footer />
+            <ChatlingWidget />
           </div>
         </Router>
       </AuthProvider>

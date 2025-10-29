@@ -28,6 +28,22 @@ export function NotFound() {
           Hubungi Kami
         </a>
       </div>
+      <div className="mt-10 grid gap-3 sm:grid-cols-2 max-w-xl w-full">
+        {[
+          { href: '/pengumuman', label: 'Pengumuman Terbaru' },
+          { href: '/pcpdb', label: 'Informasi PCPDB' },
+          { href: '/ekstrakulikuler', label: 'Ekstrakurikuler' },
+          { href: '/faq', label: 'FAQ & Bantuan' }
+        ].map((item) => (
+          <Link
+            key={item.href}
+            to={item.href}
+            className="rounded-lg border border-school-border bg-white px-4 py-3 text-sm font-semibold text-school-text hover:border-school-accent hover:text-school-accent transition-colors"
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

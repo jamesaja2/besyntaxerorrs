@@ -163,15 +163,15 @@ export function GalleryDetail() {
 
           {galleryItem.imageUrl && (
             <div className="mt-8 overflow-hidden rounded-3xl border border-school-accent/20 shadow-lg">
-              <img
-                src={galleryItem.imageUrl}
-                alt={galleryItem.title}
-                loading="lazy"
-                decoding="async"
-                width={1280}
-                height={720}
-                className="h-80 w-full object-cover"
-              />
+                <img
+                  src={galleryItem.imageUrl}
+                  alt={galleryItem.title}
+                  loading="lazy"
+                  decoding="async"
+                  width={1280}
+                  height={720}
+                  className="h-80 w-full object-cover"
+                />
             </div>
           )}
 

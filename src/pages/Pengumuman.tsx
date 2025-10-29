@@ -289,15 +289,15 @@ export function Pengumuman() {
                       {/* Featured Image */}
                       {announcement.imageUrl && (
                         <figure className="w-full mb-4 overflow-hidden rounded-xl border border-school-accent/20 bg-school-accent/5">
-                          <img
-                            src={announcement.imageUrl}
-                            alt={`Ilustrasi pengumuman ${announcement.title}`}
-                            loading="lazy"
-                            decoding="async"
-                            width={960}
-                            height={540}
-                            className="h-48 w-full object-cover"
-                          />
+                            <img
+                              src={announcement.imageUrl}
+                              alt={`Ilustrasi pengumuman ${announcement.title}`}
+                              loading="lazy"
+                              decoding="async"
+                              width={960}
+                              height={540}
+                              className="h-48 w-full object-cover"
+                            />
                         </figure>
                       )}
 

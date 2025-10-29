@@ -308,10 +308,10 @@ export function Galeri() {
                     </p>
 
                     {/* Tags */}
-                    {item.tags && item.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-4">
+                    {item.tags.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 mb-4">
                         {item.tags.slice(0, 3).map((tag, tagIndex) => (
-                          <span 
+                          <span
                             key={tagIndex}
                             className="inline-flex items-center px-2 py-1 bg-school-accent/10 text-school-accent text-xs rounded-full"
                           >
