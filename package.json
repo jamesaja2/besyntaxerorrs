@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:prod": "vite build --minify terser --sourcemap false"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@types/node": "^22.7.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
@@ -46,10 +48,11 @@
     "globals": "^15.9.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
+    "terser": "^5.36.0",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "@types/node": "^22.7.4",
     "vite": "^5.4.2",
-    "vite-imagetools": "^7.0.2"
+    "vite-imagetools": "^7.0.2",
+    "vite-plugin-imagemin": "^0.6.1"
   }
 }

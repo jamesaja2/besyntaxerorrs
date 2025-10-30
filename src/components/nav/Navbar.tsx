@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { schoolInfo } from '@/data/school';
 // @ts-expect-error - handled by vite-imagetools at build time
-import brandLogoSrc from '../../public/images/logo.webp?imagetools&w=96&format=webp&quality=80';
+import brandLogoSrc from '../../public/images/logo.webp?imagetools&w=64&format=webp&quality=80';
 // @ts-expect-error - handled by vite-imagetools at build time
-import brandLogoSrcSet from '../../public/images/logo.webp?imagetools&w=48;64;96&format=webp&quality=80&as=srcset';
+import brandLogoSrcSet from '../../public/images/logo.webp?imagetools&w=32;48;64&format=webp&quality=80&as=srcset';
 // @ts-expect-error - handled by vite-imagetools at build time
-import brandLogoMeta from '../../public/images/logo.webp?imagetools&w=96&as=metadata';
+import brandLogoMeta from '../../public/images/logo.webp?imagetools&w=64&as=metadata';
 
 const navItems = [
   { name: 'Beranda', href: '/' },
@@ -70,7 +70,7 @@ export function Navbar() {
                   decoding="async"
                   width={brandLogoMeta.width}
                   height={brandLogoMeta.height}
-                  sizes="(min-width: 1024px) 64px, 48px"
+                  sizes="(min-width: 1024px) 48px, 32px"
                   className="w-full h-full object-contain"
                 />
               </div>
