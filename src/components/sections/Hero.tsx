@@ -36,7 +36,7 @@ export function Hero() {
       <div className="absolute inset-0 bg-batik-pattern opacity-20" />
       
       {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+  <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 text-center min-h-[360px]">
         <motion.div
           variants={containerVariants}
           initial="hidden"

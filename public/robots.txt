@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://syntaxerr.smakstlouis1sby.sch.id/sitemap.xml
