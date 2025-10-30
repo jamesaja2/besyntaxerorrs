@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import { Menu, Bell, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { schoolInfo } from '@/data/school';
-import brandLogo from '@/public/images/logo.webp';
+// @ts-expect-error - handled by vite-imagetools at build time
+import brandLogoSrc from '../../public/images/logo.webp?imagetools&w=96&format=webp&quality=80';
+// @ts-expect-error - handled by vite-imagetools at build time
+import brandLogoSrcSet from '../../public/images/logo.webp?imagetools&w=48;64;96&format=webp&quality=80&as=srcset';
+// @ts-expect-error - handled by vite-imagetools at build time
+import brandLogoMeta from '../../public/images/logo.webp?imagetools&w=96&as=metadata';
 
 const navItems = [
   { name: 'Beranda', href: '/' },
@@ -58,12 +63,14 @@ export function Navbar() {
             >
               <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
                 <img 
-                  src={brandLogo}
+                  src={brandLogoSrc}
+                  srcSet={brandLogoSrcSet}
                   alt="SMA St. Louis 1 Logo"
                   loading="eager"
                   decoding="async"
-                  width={64}
-                  height={64}
+                  width={brandLogoMeta.width}
+                  height={brandLogoMeta.height}
+                  sizes="(min-width: 1024px) 64px, 48px"
                   className="w-full h-full object-contain"
                 />
               </div>

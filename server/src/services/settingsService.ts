@@ -26,7 +26,7 @@ const DEFAULT_SENTRY_DSN = 'https://e09c29bb2b4c4e4b032e4605d01aa964@o4510205690
 const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'https://redirect.syntaxerorrs.my.id',
-  'https://besyntax.jh-beon.cloud'
+  'https://syntaxerr.smakstlouis1sby.sch.id'
 ];
 
 const DEFAULT_SETTINGS: RuntimeSettings = {

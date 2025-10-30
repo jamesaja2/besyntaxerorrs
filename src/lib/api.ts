@@ -1,7 +1,18 @@
 import axios from 'axios';
 
+const computeBaseUrl = () => {
+  const fromEnv = import.meta.env.VITE_API_URL?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin.replace(/\/$/, '')}/api`;
+  }
+  return 'http://localhost:4000/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
+  baseURL: computeBaseUrl()
 });
 
 api.interceptors.request.use((config) => {

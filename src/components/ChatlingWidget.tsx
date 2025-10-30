@@ -84,3 +84,5 @@ export function ChatlingWidget() {
 
   return null;
 }
+
+export default ChatlingWidget;

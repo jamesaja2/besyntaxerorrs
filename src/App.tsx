@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -6,7 +6,7 @@ import { Navbar } from '@/components/nav/Navbar';
 import { Footer } from '@/components/sections/Footer';
 import { AppRoutes } from '@/routes';
 import { FloatingBrandSlot } from '@/components/FloatingBrandSlot';
-import { ChatlingWidget } from '@/components/ChatlingWidget';
+const ChatlingWidget = lazy(() => import('@/components/ChatlingWidget').then((module) => ({ default: module.ChatlingWidget })));
 
 // Scroll to top component
 function ScrollToTop() {
@@ -32,7 +32,9 @@ function App() {
             </main>
             <FloatingBrandSlot />
             <Footer />
-            <ChatlingWidget />
+            <Suspense fallback={null}>
+              <ChatlingWidget />
+            </Suspense>
           </div>
         </Router>
       </AuthProvider>

@@ -1,15 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
+import { imagetools } from 'vite-imagetools'
+
+const srcPath = decodeURI(new URL('./src', import.meta.url).pathname)
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), imagetools()],
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': srcPath,
     },
   },
 })
