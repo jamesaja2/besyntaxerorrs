@@ -1,5 +1,6 @@
 // import React from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { ArrowRight, Calendar, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ const containerVariants = {
       delayChildren: 0,
     },
   },
-};
+} satisfies Variants;
 
 const itemVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -23,23 +24,16 @@ const itemVariants = {
     y: 0,
     transition: {
       duration: 0.45,
-      ease: "easeOut",
+      ease: 'easeOut',
     },
   },
-};
+} satisfies Variants;
 
 export function Hero() {
-  const { scrollYProgress } = useScroll();
-  const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
-  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
-
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-white via-school-secondary to-school-surface">
       {/* Background Pattern */}
-      <motion.div 
-        style={{ y, opacity }}
-        className="absolute inset-0 bg-batik-pattern opacity-20"
-      />
+      <div className="absolute inset-0 bg-batik-pattern opacity-20" />
       
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 text-center">

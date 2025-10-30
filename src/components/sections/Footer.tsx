@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Phone, Mail, Instagram, Youtube, Facebook, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -44,15 +43,15 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-school-surface border-t border-school-border">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+  <footer className="bg-school-surface border-t border-school-border min-h-[420px]">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 min-h-[340px]">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* School Info */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.4 }}
             className="lg:col-span-2"
           >
             <div className="flex items-center space-x-3 mb-4">
@@ -101,10 +100,10 @@ export function Footer() {
           {Object.entries(footerLinks).map(([category, links], categoryIndex) => (
             <motion.div
               key={category}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: (categoryIndex + 1) * 0.1 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.4, delay: (categoryIndex + 1) * 0.08 }}
             >
               <h4 className="text-lg font-semibold text-school-text mb-4">{category}</h4>
               <ul className="space-y-2">
@@ -125,10 +124,10 @@ export function Footer() {
 
         {/* Bottom Section */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.4, delay: 0.24 }}
           className="pt-8 border-t border-school-accent/10 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0"
         >
           {/* Copyright */}
